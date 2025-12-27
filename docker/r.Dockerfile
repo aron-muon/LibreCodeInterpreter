@@ -19,17 +19,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libx11-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Layer 1: Core data manipulation packages (most stable)
-RUN R -e "install.packages(c('dplyr', 'tidyr', 'data.table', 'magrittr'), repos='https://cran.rstudio.com/', dependencies=TRUE)"
-
-# Layer 2: Visualization packages (including Cairo for graphics output)
-RUN R -e "install.packages(c('ggplot2', 'lattice', 'scales', 'Cairo'), repos='https://cran.rstudio.com/', dependencies=TRUE)"
-
-# Layer 3: Data I/O packages
-RUN R -e "install.packages(c('readr', 'readxl', 'writexl', 'jsonlite', 'xml2'), repos='https://cran.rstudio.com/', dependencies=TRUE)"
-
-# Layer 4: Statistics and utilities
-RUN R -e "install.packages(c('stats', 'MASS', 'survival', 'lubridate', 'stringr', 'glue'), repos='https://cran.rstudio.com/', dependencies=TRUE)"
+# Install all R packages in a single layer using Posit Package Manager
+# - amd64: Downloads pre-compiled binaries (~5 min)
+# - arm64: Compiles from source but single layer avoids redundant dependency builds
+RUN R -e "options(repos = c(CRAN = 'https://packagemanager.posit.co/cran/__linux__/bookworm/latest')); \
+    install.packages(c( \
+        'dplyr', 'tidyr', 'data.table', 'magrittr', \
+        'ggplot2', 'lattice', 'scales', 'Cairo', \
+        'readr', 'readxl', 'writexl', 'jsonlite', 'xml2', \
+        'MASS', 'survival', 'lubridate', 'stringr', 'glue' \
+    ))"
 
 # Create non-root user
 RUN groupadd -g 1001 codeuser && \
