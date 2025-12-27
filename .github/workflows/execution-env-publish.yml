@@ -56,10 +56,10 @@ jobs:
         id: determine-targets
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ github.event.inputs.build_all }}" == "true" ]; then
-            echo "languages=${{ env.ALL_LANGUAGES }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" == "push" ] && echo "${{ github.event.head_commit.modified }}" | grep -q ".github/workflows/execution-env-publish.yml"; then
+            echo 'languages=${{ env.ALL_LANGUAGES }}' >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ contains(github.event.head_commit.modified, '.github/workflows/execution-env-publish.yml') }}" == "true" ]; then
             # If workflow itself changed, build everything
-            echo "languages=${{ env.ALL_LANGUAGES }}" >> $GITHUB_OUTPUT
+            echo 'languages=${{ env.ALL_LANGUAGES }}' >> $GITHUB_OUTPUT
           else
             echo "languages=${{ steps.changes.outputs.changes }}" >> $GITHUB_OUTPUT
           fi
