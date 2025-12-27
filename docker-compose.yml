@@ -37,7 +37,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./logs:/app/logs
       - ./data:/app/data
-      - ./ssl:/app/ssl
+      - ${SSL_CERTS_PATH:-./ssl}:/app/ssl
       - ./dashboard:/app/dashboard
       - ./src:/app/src
     depends_on:
