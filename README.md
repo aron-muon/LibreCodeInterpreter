@@ -24,8 +24,11 @@ Get up and running in minutes by building the execution environment.
    # The default settings work out-of-the-box for local development
    ```
 
-3. **Build execution environment images**
+3. **Prepare execution environment images**
 
+   You can either build the images locally (recommended) or pull pre-built images from GitHub Container Registry.
+
+   **Option A: Build locally (Recommended)**
    ```bash
    # Build Python only (minimal)
    ./docker/build-images.sh -l python
@@ -34,9 +37,28 @@ Get up and running in minutes by building the execution environment.
    ./docker/build-images.sh -p
    ```
 
+   **Option B: Pull from GHCR**
+   ```bash
+   # Pull Python only
+   docker pull ghcr.io/usnavy13/librecodeinterpreter/python:latest
+
+   # Or pull the API and all languages
+   docker pull ghcr.io/usnavy13/librecodeinterpreter:latest
+   for lang in python nodejs go java c-cpp php rust r fortran d; do
+     docker pull ghcr.io/usnavy13/librecodeinterpreter/$lang:latest
+   done
+   ```
+
 4. **Start the API**
+
+   **Option A: Using local images (if you built them)**
    ```bash
    docker compose up -d
+   ```
+
+   **Option B: Using pre-built images (if you pulled them)**
+   ```bash
+   docker compose -f docker-compose.ghcr.yml up -d
    ```
 
 The API will be available at `http://localhost:8000`.
