@@ -323,6 +323,11 @@ td {
   color: var(--accent-red);
 }
 
+.badge-warning {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
 /* Buttons */
 .btn {
   padding: 0.5rem 1rem;

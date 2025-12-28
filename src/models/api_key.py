@@ -67,6 +67,9 @@ class ApiKeyRecord:
     metadata: Dict[str, str] = field(default_factory=dict)
     last_used_at: Optional[datetime] = None
     usage_count: int = 0
+    source: str = (
+        "managed"  # "managed" for Redis-managed, "environment" for env var keys
+    )
 
     def to_redis_hash(self) -> Dict[str, str]:
         """Convert to Redis hash format (all string values)."""
@@ -104,6 +107,7 @@ class ApiKeyRecord:
             "metadata": json.dumps(self.metadata),
             "last_used_at": self.last_used_at.isoformat() if self.last_used_at else "",
             "usage_count": str(self.usage_count),
+            "source": self.source,
         }
 
     @classmethod
@@ -167,6 +171,7 @@ class ApiKeyRecord:
             metadata=metadata,
             last_used_at=last_used_at,
             usage_count=int(decoded.get("usage_count", "0")),
+            source=decoded.get("source", "managed"),
         )
 
     def to_display_dict(self) -> Dict[str, Any]:
@@ -185,6 +190,7 @@ class ApiKeyRecord:
                 "daily": self.rate_limits.daily,
                 "monthly": self.rate_limits.monthly,
             },
+            "source": self.source,
         }
 
 

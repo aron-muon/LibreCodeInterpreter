@@ -258,10 +258,10 @@ function populateApiKeyDropdown() {
   select.innerHTML =
     '<option value="">All API Keys</option>' +
     state.apiKeyList
-      .map(
-        (k) =>
-          `<option value="${k.key_hash}">${k.name} (${k.key_prefix}...)</option>`,
-      )
+      .map((k) => {
+        const envIndicator = k.source === "environment" ? " [ENV]" : "";
+        return `<option value="${k.key_hash}">${k.name}${envIndicator} (${k.key_prefix}...)</option>`;
+      })
       .join("");
 }
 
@@ -642,25 +642,20 @@ function renderKeysTable() {
 
   if (state.keys.length === 0) {
     tbody.innerHTML =
-      '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">No managed API keys found.</td></tr>';
+      '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">No API keys found.</td></tr>';
     return;
   }
 
   tbody.innerHTML = state.keys
-    .map(
-      (key) => `
-        <tr>
-            <td>${key.name || "Unnamed"}</td>
-            <td><code>${key.key_prefix || "---"}...</code></td>
-            <td>
-                <span class="badge ${key.enabled ? "badge-success" : "badge-danger"}">
-                    ${key.enabled ? "Active" : "Disabled"}
-                </span>
-            </td>
-            <td>${new Date(key.created_at).toLocaleDateString()}</td>
-            <td>${key.usage_count || 0}</td>
-            <td>${formatRateLimits(key.rate_limits)}</td>
-            <td class="actions-cell">
+    .map((key) => {
+      const isEnvKey = key.source === "environment";
+      const statusBadge = isEnvKey
+        ? '<span class="badge badge-warning">Environment</span>'
+        : `<span class="badge ${key.enabled ? "badge-success" : "badge-danger"}">${key.enabled ? "Active" : "Disabled"}</span>`;
+
+      const actionsHtml = isEnvKey
+        ? '<span class="text-muted" style="font-size: 0.75rem;">Read-only</span>'
+        : `
                 <button class="btn btn-sm" data-action="edit-key" data-hash="${key.key_hash}" title="Edit">
                     <i data-lucide="edit-2" style="width: 14px;"></i>
                 </button>
@@ -669,11 +664,19 @@ function renderKeysTable() {
                 </button>
                 <button class="btn btn-sm btn-danger" data-action="revoke-key" data-hash="${key.key_hash}" title="Revoke">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
-                </button>
-            </td>
-        </tr>
-    `,
-    )
+                </button>`;
+
+      return `
+        <tr${isEnvKey ? ' style="background: rgba(251, 191, 36, 0.05);"' : ""}>
+            <td>${key.name || "Unnamed"}</td>
+            <td><code>${key.key_prefix || "---"}...</code></td>
+            <td>${statusBadge}</td>
+            <td>${new Date(key.created_at).toLocaleDateString()}</td>
+            <td>${key.usage_count || 0}</td>
+            <td>${formatRateLimits(key.rate_limits)}</td>
+            <td class="actions-cell">${actionsHtml}</td>
+        </tr>`;
+    })
     .join("");
 
   initLucide();

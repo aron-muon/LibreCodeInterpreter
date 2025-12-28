@@ -215,9 +215,11 @@ class SecurityMiddleware:
         scope["state"]["api_key_hash"] = result.key_hash
         scope["state"]["is_env_key"] = result.is_env_key
 
-        # Record usage for Redis-managed keys (not env var keys)
-        if not result.is_env_key and result.key_hash:
-            await auth_service.record_usage(result.key_hash, is_env_key=False)
+        # Record usage for all keys (both managed and env keys)
+        if result.key_hash:
+            await auth_service.record_usage(
+                result.key_hash, is_env_key=result.is_env_key
+            )
 
     def _extract_api_key(self, request: Request) -> Optional[str]:
         """Extract API key from request headers."""

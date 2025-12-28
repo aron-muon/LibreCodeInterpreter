@@ -36,6 +36,7 @@ class ApiKeyManagerService:
     VALID_CACHE_PREFIX = "api_keys:valid:"
     USAGE_PREFIX = "api_keys:usage:"
     INDEX_KEY = "api_keys:index"
+    ENV_KEYS_INDEX = "api_keys:env_index"  # Separate index for env keys
 
     # Cache TTL
     VALIDATION_CACHE_TTL = 300  # 5 minutes
@@ -62,6 +63,153 @@ class ApiKeyManagerService:
     def _short_hash(self, key_hash: str) -> str:
         """Get short version of hash for caching."""
         return key_hash[:16]
+
+    async def ensure_env_key_records(self) -> List[ApiKeyRecord]:
+        """Ensure env key records exist in Redis for visibility.
+
+        Creates or updates records for API_KEY and API_KEYS env vars.
+        These are read-only records for dashboard visibility.
+
+        Returns:
+            List of env key records
+        """
+        env_records = []
+
+        # Primary API_KEY
+        primary_key = settings.api_key
+        if primary_key and primary_key != "test-api-key":
+            record = await self._ensure_single_env_key_record(
+                primary_key, "Environment Key (API_KEY)"
+            )
+            if record:
+                env_records.append(record)
+
+        # Additional API_KEYS
+        additional_keys = settings.get_valid_api_keys()
+        for idx, key in enumerate(additional_keys):
+            name = f"Environment Key (API_KEYS #{idx + 1})"
+            record = await self._ensure_single_env_key_record(key, name)
+            if record:
+                env_records.append(record)
+
+        return env_records
+
+    async def _ensure_single_env_key_record(
+        self, api_key: str, name: str
+    ) -> Optional[ApiKeyRecord]:
+        """Create or update a single env key record.
+
+        Args:
+            api_key: The actual API key value
+            name: Human-readable name for the key
+
+        Returns:
+            ApiKeyRecord or None on error
+        """
+        try:
+            key_hash = self._hash_key(api_key)
+            record_key = f"{self.RECORD_PREFIX}{key_hash}"
+
+            # Check if record already exists
+            existing = await self.redis.hgetall(record_key)
+
+            if existing:
+                # Update existing record to ensure it has correct source
+                record = ApiKeyRecord.from_redis_hash(existing)
+                if record.source != "environment":
+                    record.source = "environment"
+                    record.name = name
+                    await self.redis.hset(record_key, mapping=record.to_redis_hash())
+                return record
+
+            # Create new record
+            record = ApiKeyRecord(
+                key_hash=key_hash,
+                key_prefix=api_key[:11] if len(api_key) >= 11 else api_key,
+                name=name,
+                created_at=datetime.now(timezone.utc),
+                enabled=True,
+                rate_limits=RateLimits(),  # Unlimited
+                metadata={"type": "environment"},
+                source="environment",
+            )
+
+            # Store in Redis
+            pipe = self.redis.pipeline(transaction=True)
+            pipe.hset(record_key, mapping=record.to_redis_hash())
+            pipe.sadd(self.ENV_KEYS_INDEX, key_hash)
+            await pipe.execute()
+
+            logger.info(
+                "Created env key record for visibility",
+                name=name,
+                key_prefix=record.key_prefix,
+            )
+
+            return record
+
+        except Exception as e:
+            logger.warning("Failed to ensure env key record", name=name, error=str(e))
+            return None
+
+    async def get_env_key_records(self) -> List[ApiKeyRecord]:
+        """Get all env key records.
+
+        Returns:
+            List of env key records
+        """
+        try:
+            key_hashes = await self.redis.smembers(self.ENV_KEYS_INDEX)
+            records = []
+
+            for key_hash in key_hashes:
+                hash_str = (
+                    key_hash.decode() if isinstance(key_hash, bytes) else key_hash
+                )
+                record = await self.get_key(hash_str)
+                if record:
+                    records.append(record)
+
+            return records
+        except Exception as e:
+            logger.warning("Failed to get env key records", error=str(e))
+            return []
+
+    async def increment_env_key_usage(self, key_hash: str) -> None:
+        """Increment usage counters for an env key.
+
+        Similar to increment_usage but handles env keys that may not have
+        a record yet (creates minimal tracking).
+
+        Args:
+            key_hash: Full SHA256 hash of the key
+        """
+        now = datetime.now(timezone.utc)
+        record_key = f"{self.RECORD_PREFIX}{key_hash}"
+
+        try:
+            # Check if record exists
+            exists = await self.redis.exists(record_key)
+
+            if exists:
+                # Update usage count and last_used_at
+                pipe = self.redis.pipeline(transaction=False)
+                pipe.hincrby(record_key, "usage_count", 1)
+                pipe.hset(record_key, "last_used_at", now.isoformat())
+                await pipe.execute()
+            else:
+                # Record doesn't exist yet - ensure it gets created
+                await self.ensure_env_key_records()
+                # Try to update again
+                exists = await self.redis.exists(record_key)
+                if exists:
+                    pipe = self.redis.pipeline(transaction=False)
+                    pipe.hincrby(record_key, "usage_count", 1)
+                    pipe.hset(record_key, "last_used_at", now.isoformat())
+                    await pipe.execute()
+
+        except Exception as e:
+            logger.warning("Failed to increment env key usage", error=str(e))
 
     async def create_key(
         self,
@@ -128,8 +276,11 @@ class ApiKeyManagerService:
 
         return ApiKeyRecord.from_redis_hash(data)
 
-    async def list_keys(self) -> List[ApiKeyRecord]:
+    async def list_keys(self, include_env_keys: bool = True) -> List[ApiKeyRecord]:
         """List all API keys (without the actual key values).
+
+        Args:
+            include_env_keys: Whether to include environment key records
 
         Returns:
             List of ApiKeyRecord objects
@@ -143,7 +294,19 @@ class ApiKeyManagerService:
             if record:
                 records.append(record)
 
-        # Sort by created_at descending
+        # Include env keys if requested
+        if include_env_keys:
+            env_records = await self.get_env_key_records()
+            # Add env records that aren't already in the list
+            existing_hashes = {r.key_hash for r in records}
+            for env_record in env_records:
+                if env_record.key_hash not in existing_hashes:
+                    records.append(env_record)
+
+        # Sort by source (env keys first), then created_at descending
+        records.sort(
+            key=lambda r: (r.source != "environment", r.created_at), reverse=False
+        )
         records.sort(key=lambda r: r.created_at, reverse=True)
         return records
 
@@ -584,5 +747,11 @@ async def get_api_key_manager() -> ApiKeyManagerService:
         redis_client = redis_pool.get_client()
         _api_key_manager = ApiKeyManagerService(redis_client)
         logger.info("Initialized API key manager service")
+
+        # Ensure env key records exist for dashboard visibility
+        try:
+            await _api_key_manager.ensure_env_key_records()
+        except Exception as e:
+            logger.warning("Failed to ensure env key records on startup", error=str(e))
 
     return _api_key_manager

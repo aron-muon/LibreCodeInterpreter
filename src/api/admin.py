@@ -47,6 +47,7 @@ class ApiKeyResponse(BaseModel):
     metadata: Dict[str, str]
     last_used_at: Optional[datetime] = None
     usage_count: int
+    source: str = "managed"  # "managed" or "environment"
 
 
 # --- Dependencies ---
@@ -70,9 +71,9 @@ async def verify_master_key(x_api_key: str = Header(...)):
 
 @router.get("/keys", response_model=List[ApiKeyResponse])
 async def list_keys(_: str = Depends(verify_master_key)):
-    """List all managed API keys."""
+    """List all API keys including environment keys (read-only)."""
     manager = await get_api_key_manager()
-    records = await manager.list_keys()
+    records = await manager.list_keys(include_env_keys=True)
 
     return [
         ApiKeyResponse(
@@ -85,6 +86,7 @@ async def list_keys(_: str = Depends(verify_master_key)):
             metadata=r.metadata,
             last_used_at=r.last_used_at,
             usage_count=r.usage_count,
+            source=r.source,
         )
         for r in records
     ]
@@ -121,6 +123,7 @@ async def create_key(data: ApiKeyCreate, _: str = Depends(verify_master_key)):
             metadata=record.metadata,
             last_used_at=record.last_used_at,
             usage_count=record.usage_count,
+            source=record.source,
         ),
     }
 
@@ -131,6 +134,14 @@ async def update_key(
 ):
     """Update an API key."""
     manager = await get_api_key_manager()
+
+    # Check if this is an env key (not allowed to modify)
+    record = await manager.get_key(key_hash)
+    if record and record.source == "environment":
+        raise HTTPException(
+            status_code=403,
+            detail="Environment keys cannot be modified. Update the API_KEY environment variable instead.",
+        )
 
     rate_limits = None
     if data.rate_limits:
@@ -156,6 +167,15 @@ async def update_key(
 async def revoke_key(key_hash: str, _: str = Depends(verify_master_key)):
     """Revoke an API key."""
     manager = await get_api_key_manager()
+
+    # Check if this is an env key (not allowed to revoke)
+    record = await manager.get_key(key_hash)
+    if record and record.source == "environment":
+        raise HTTPException(
+            status_code=403,
+            detail="Environment keys cannot be revoked. Remove the API_KEY environment variable instead.",
+        )
+
     success = await manager.revoke_key(key_hash)
 
     if not success:

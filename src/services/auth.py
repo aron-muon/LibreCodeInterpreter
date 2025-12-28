@@ -17,7 +17,7 @@ import structlog
 
 # Local application imports
 from ..config import settings
-from ..models.api_key import KeyValidationResult, RateLimitStatus
+from ..models.api_key import KeyValidationResult
 
 logger = structlog.get_logger(__name__)
 
@@ -145,11 +145,13 @@ class AuthenticationService:
             key_hash: Hash of the API key
             is_env_key: True if this is the env var key (no rate limiting)
         """
-        if is_env_key:
-            return  # Don't track usage for env var keys
-
         try:
-            await self.api_key_manager.increment_usage(key_hash)
+            if is_env_key:
+                # Track usage for env keys (for dashboard visibility)
+                await self.api_key_manager.increment_env_key_usage(key_hash)
+            else:
+                # Track usage for managed keys (includes rate limit counters)
+                await self.api_key_manager.increment_usage(key_hash)
         except Exception as e:
             logger.warning("Failed to record usage", error=str(e))
 

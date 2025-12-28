@@ -41,9 +41,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Create non-root user for security and add to docker group with correct GID
-RUN groupadd -r appuser && useradd -r -g appuser appuser && \
-    groupadd -g 113 docker && usermod -aG docker appuser
+# Create non-root user with explicit UID 1000 for consistent volume permissions
+# The docker group GID 988 matches the host's docker group for socket access
+RUN groupadd -r -g 1000 appuser && useradd -r -u 1000 -g appuser appuser && \
+    groupadd -g 988 docker && usermod -aG docker appuser
 
 # Set working directory
 WORKDIR /app
@@ -58,9 +59,9 @@ COPY dashboard/ ./dashboard/
 
 COPY .env.example .
 
-# Create necessary directories
+# Create necessary directories with correct ownership
 RUN mkdir -p /app/logs /app/data /app/ssl && \
-    chown -R appuser:appuser /app
+    chown -R 1000:1000 /app
 
 # Switch to non-root user
 USER appuser

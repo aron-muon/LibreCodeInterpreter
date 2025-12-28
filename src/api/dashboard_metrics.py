@@ -109,6 +109,7 @@ class ApiKeyFilterOption(BaseModel):
     name: str
     key_prefix: str
     usage_count: int
+    source: str = "managed"  # "managed" or "environment"
 
 
 # --- Endpoints ---
@@ -228,10 +229,10 @@ async def get_activity_heatmap(
 
 @router.get("/api-keys", response_model=List[ApiKeyFilterOption])
 async def get_api_keys_for_filter(_: str = Depends(verify_master_key)):
-    """Get list of API keys for filter dropdown."""
-    # Get API keys from manager (with names)
+    """Get list of API keys for filter dropdown (includes env keys)."""
+    # Get API keys from manager (with names), including env keys
     manager = await get_api_key_manager()
-    managed_keys = await manager.list_keys()
+    managed_keys = await manager.list_keys(include_env_keys=True)
 
     # Build lookup by key_hash
     key_lookup = {k.key_hash: k for k in managed_keys}
@@ -240,9 +241,12 @@ async def get_api_keys_for_filter(_: str = Depends(verify_master_key)):
     sqlite_keys = await sqlite_metrics_service.get_api_keys_list()
 
     result = []
+    seen_hashes = set()
+
     for sk in sqlite_keys:
         key_hash = sk["key_hash"]
         managed = key_lookup.get(key_hash)
+        seen_hashes.add(key_hash)
 
         result.append(
             ApiKeyFilterOption(
@@ -250,8 +254,22 @@ async def get_api_keys_for_filter(_: str = Depends(verify_master_key)):
                 name=managed.name if managed else f"Key {key_hash[:8]}",
                 key_prefix=managed.key_prefix if managed else key_hash[:12],
                 usage_count=sk["usage_count"],
+                source=managed.source if managed else "managed",
             )
         )
+
+    # Add env keys that might not have SQLite usage yet
+    for key in managed_keys:
+        if key.source == "environment" and key.key_hash not in seen_hashes:
+            result.append(
+                ApiKeyFilterOption(
+                    key_hash=key.key_hash,
+                    name=key.name,
+                    key_prefix=key.key_prefix,
+                    usage_count=key.usage_count,
+                    source="environment",
+                )
+            )
 
     return result
 
