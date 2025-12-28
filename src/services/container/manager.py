@@ -254,8 +254,16 @@ class ContainerManager:
             "read_only": False,
             "tmpfs": {"/tmp": "noexec,nosuid,size=100m"},
             "ulimits": [
-                docker.types.Ulimit(name="nproc", soft=settings.max_processes, hard=settings.max_processes),
-                docker.types.Ulimit(name="nofile", soft=settings.max_open_files, hard=settings.max_open_files),
+                docker.types.Ulimit(
+                    name="nproc",
+                    soft=settings.max_processes,
+                    hard=settings.max_processes,
+                ),
+                docker.types.Ulimit(
+                    name="nofile",
+                    soft=settings.max_open_files,
+                    hard=settings.max_open_files,
+                ),
             ],
             # Note: /proc/kallsyms and /proc/modules masking requires MaskedPaths
             # which docker-py doesn't support. Bind mounts to /proc are blocked by runc.
