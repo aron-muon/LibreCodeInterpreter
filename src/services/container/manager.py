@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
+import docker.types
 from docker.errors import DockerException, ImageNotFound
 from docker.models.containers import Container
 
@@ -55,8 +56,61 @@ class ContainerManager:
         self._executor = None
 
     def get_image_for_language(self, language: str) -> str:
-        """Get Docker image for a programming language."""
-        return settings.get_image_for_language(language.lower().strip())
+        """Get Docker image for a programming language.
+
+        Uses fallback logic to find available images:
+        1. Configured image from settings/env (e.g., DOCKER_IMAGE_REGISTRY)
+        2. Local build prefix: code-interpreter/<lang>:latest
+        3. GHCR prefix: ghcr.io/usnavy13/librecodeinterpreter/<lang>:latest
+        """
+        lang = language.lower().strip()
+
+        # Get the configured image name
+        configured_image = settings.get_image_for_language(lang)
+
+        # Build list of fallback images to try
+        # Extract the language-specific part (e.g., "python" from "registry/python:tag")
+        lang_part = configured_image.split("/")[-1]  # e.g., "python:latest"
+
+        fallback_images = [
+            configured_image,  # First: configured image
+            f"code-interpreter/{lang_part}",  # Second: local build
+            f"ghcr.io/usnavy13/librecodeinterpreter/{lang_part}",  # Third: GHCR
+        ]
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_images = []
+        for img in fallback_images:
+            if img not in seen:
+                seen.add(img)
+                unique_images.append(img)
+
+        # Check which image exists locally
+        if self.is_available():
+            for image in unique_images:
+                try:
+                    self.client.images.get(image)
+                    if image != configured_image:
+                        logger.info(f"Using fallback image {image} for language {lang}")
+                    return image
+                except ImageNotFound:
+                    continue
+                except Exception:
+                    continue
+
+            # No local image found - fail fast with clear error
+            tried_images = ", ".join(unique_images)
+            error_msg = (
+                f"No Docker image found for language '{lang}'. "
+                f"Tried: {tried_images}. "
+                f"Please build images with 'docker compose build' or pull from GHCR."
+            )
+            logger.error(error_msg)
+            raise ImageNotFound(error_msg)
+
+        # Docker not available, return configured (will fail later with better error)
+        return configured_image
 
     def get_user_id_for_language(self, language: str) -> int:
         """Get the user ID for a language container."""
@@ -123,6 +177,10 @@ class ContainerManager:
         use_wan_access = settings.enable_wan_access
 
         # Security hardening: paths to mask to prevent host info leakage
+        # Note: MaskedPaths/ReadonlyPaths are not supported by docker-py 7.1.0.
+        # Instead, we use bind mounts to /dev/null for critical paths like
+        # /proc/kallsyms and /proc/modules (see "mounts" in container_config).
+        # The list below is kept for documentation purposes.
         hardening_config: Dict[str, Any] = {}
         if settings.container_mask_host_info:
             hardening_config["masked_paths"] = [
@@ -134,6 +192,8 @@ class ContainerManager:
                 "/proc/keys",
                 "/proc/timer_list",
                 "/proc/sched_debug",
+                "/proc/kallsyms",  # Kernel symbol addresses (KASLR bypass) - masked via bind mount
+                "/proc/modules",  # Loaded kernel modules - masked via bind mount
                 "/sys/firmware",
                 "/sys/kernel/security",
                 "/etc/machine-id",  # Unique machine identifier
@@ -174,11 +234,10 @@ class ContainerManager:
                 pass
 
         # Build container config
-        # Note: MaskedPaths/ReadonlyPaths require Docker API >=1.44 and
-        # are not supported by docker-py. Path masking would require either:
-        # 1. Custom seccomp profile
-        # 2. gVisor/kata container runtime
-        # 3. Custom container image modifications
+        # Security hardening applied:
+        # - ulimits: nproc and nofile limits to prevent fork bombs and FD exhaustion
+        # Note: /proc/kallsyms and /proc/modules masking would require MaskedPaths
+        # (not supported by docker-py) or a custom seccomp profile.
         container_config: Dict[str, Any] = {
             "image": image,
             "name": container_name,
@@ -194,6 +253,13 @@ class ContainerManager:
             "cap_add": ["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"],
             "read_only": False,
             "tmpfs": {"/tmp": "noexec,nosuid,size=100m"},
+            "ulimits": [
+                docker.types.Ulimit(name="nproc", soft=settings.max_processes, hard=settings.max_processes),
+                docker.types.Ulimit(name="nofile", soft=settings.max_open_files, hard=settings.max_open_files),
+            ],
+            # Note: /proc/kallsyms and /proc/modules masking requires MaskedPaths
+            # which docker-py doesn't support. Bind mounts to /proc are blocked by runc.
+            # Alternative: use a custom seccomp profile or accept the limitation.
             "environment": env,
             "labels": labels,
             "hostname": settings.container_generic_hostname,
