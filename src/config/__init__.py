@@ -148,12 +148,6 @@ class Settings(BaseSettings):
         le=4096,
         description="Per-container process limit (cgroup pids_limit). Prevents fork bombs.",
     )
-    max_processes: int = Field(
-        default=512,
-        ge=64,
-        le=4096,
-        description="Per-UID nproc ulimit. Set high since max_pids handles per-container limiting.",
-    )
     max_open_files: int = Field(default=1024, ge=64, le=4096)
 
     # Resource Limits - Files

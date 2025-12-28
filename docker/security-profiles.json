@@ -10,12 +10,8 @@
     "tmpfs": {
       "/tmp": "rw,noexec,nosuid,size=100m"
     },
+    "pidsLimit": 512,
     "ulimits": [
-      {
-        "name": "nproc",
-        "soft": 32,
-        "hard": 32
-      },
       {
         "name": "nofile",
         "soft": 1024,
@@ -42,12 +38,8 @@
     "tmpfs": {
       "/tmp": "rw,noexec,nosuid,size=50m"
     },
+    "pidsLimit": 256,
     "ulimits": [
-      {
-        "name": "nproc",
-        "soft": 16,
-        "hard": 16
-      },
       {
         "name": "nofile",
         "soft": 512,
@@ -67,36 +59,15 @@
   "languageProfiles": {
     "python": {
       "inherits": "defaultProfile",
-      "description": "Security profile optimized for Python execution",
-      "ulimits": [
-        {
-          "name": "nproc",
-          "soft": 64,
-          "hard": 64
-        }
-      ]
+      "description": "Security profile optimized for Python execution"
     },
     "nodejs": {
       "inherits": "defaultProfile",
-      "description": "Security profile optimized for Node.js execution",
-      "ulimits": [
-        {
-          "name": "nproc",
-          "soft": 48,
-          "hard": 48
-        }
-      ]
+      "description": "Security profile optimized for Node.js execution"
     },
     "java": {
       "inherits": "defaultProfile",
-      "description": "Security profile optimized for Java execution",
-      "ulimits": [
-        {
-          "name": "nproc",
-          "soft": 128,
-          "hard": 128
-        }
-      ]
+      "description": "Security profile optimized for Java execution"
     },
     "go": {
       "inherits": "defaultProfile",

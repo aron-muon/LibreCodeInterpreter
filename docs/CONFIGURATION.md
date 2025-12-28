@@ -184,13 +184,13 @@ Docker is used for secure code execution in containers.
 
 #### Execution Limits
 
-| Variable             | Default | Description                           |
-| -------------------- | ------- | ------------------------------------- |
-| `MAX_EXECUTION_TIME` | `30`    | Maximum code execution time (seconds) |
-| `MAX_MEMORY_MB`      | `512`   | Maximum memory per execution (MB)     |
-| `MAX_CPU_QUOTA`      | `50000` | CPU quota (100000 = 1 CPU)            |
-| `MAX_PROCESSES`      | `32`    | Maximum processes per container       |
-| `MAX_OPEN_FILES`     | `1024`  | Maximum open files per container      |
+| Variable             | Default | Description                                                      |
+| -------------------- | ------- | ---------------------------------------------------------------- |
+| `MAX_EXECUTION_TIME` | `30`    | Maximum code execution time (seconds)                            |
+| `MAX_MEMORY_MB`      | `512`   | Maximum memory per execution (MB)                                |
+| `MAX_CPU_QUOTA`      | `50000` | CPU quota (100000 = 1 CPU)                                       |
+| `MAX_PIDS`           | `512`   | Per-container process limit (cgroup pids_limit, prevents fork bombs) |
+| `MAX_OPEN_FILES`     | `1024`  | Maximum open files per container                                 |
 
 #### File Limits
 
