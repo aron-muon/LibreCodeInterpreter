@@ -48,16 +48,18 @@ The warm pool approach achieves ~85% reduction in P99 latency compared to cold-s
 
 ## Pod Design: Two-Container Sidecar Pattern
 
-Each execution pod contains two containers:
+Each execution pod contains two containers that share process namespaces, enabling the sidecar to execute code using the main container's runtime environment.
 
 ### 1. Main Container (Language Runtime)
 - Runs the language runtime (Python, Node.js, Go, etc.)
-- Executes user code in isolation
+- Provides the execution environment (compilers, interpreters, libraries)
 - Shares `/mnt/data` volume with sidecar
+- Runs a sleep loop to keep the container alive
 
 ### 2. HTTP Sidecar (Executor)
-- Lightweight FastAPI server
+- Lightweight FastAPI server (~50MB)
 - Exposes REST API for code execution
+- Uses `nsenter` to execute code in the main container's namespace
 - Handles file transfers and state management
 
 **Sidecar API Endpoints:**
@@ -68,6 +70,50 @@ GET  /files       - List files in working directory
 GET  /files/{name} - Download file content
 GET  /health      - Health check
 ```
+
+### Namespace Sharing with nsenter
+
+The pod uses `shareProcessNamespace: true`, allowing containers to see each other's processes. The sidecar uses Linux `nsenter` to execute code in the main container's mount namespace:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Execution Pod                          │
+│  shareProcessNamespace: true                                │
+│                                                             │
+│  ┌─────────────────────┐    ┌─────────────────────────────┐│
+│  │   Main Container    │    │      Sidecar Container      ││
+│  │                     │    │                             ││
+│  │  • Python/Node/Go   │◄───│  • Receives HTTP request    ││
+│  │  • sleep infinity   │    │  • Writes code to /mnt/data ││
+│  │  • PID 1 visible    │    │  • nsenter -m -t <PID> sh   ││
+│  │    to sidecar       │    │  • Returns stdout/stderr    ││
+│  └─────────────────────┘    └─────────────────────────────┘│
+│           │                            │                    │
+│           └────────────────────────────┘                    │
+│                   Shared /mnt/data volume                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**How nsenter works:**
+1. Sidecar finds the main container's PID (typically PID 7 after pause container)
+2. Uses `nsenter -m -t <PID>` to enter the mount namespace
+3. Executes shell commands using the main container's filesystem
+4. Captures stdout/stderr and returns via HTTP
+
+**Per-Language Environment Setup:**
+
+Since `nsenter -m` only enters the mount namespace (not the environment), the sidecar explicitly sets up PATH and environment variables for each language:
+
+| Language | Key Environment Variables |
+|----------|--------------------------|
+| Python | `PATH=/usr/local/bin:/usr/bin:/bin`, `PYTHONUNBUFFERED=1` |
+| Node.js | `PATH=/usr/local/bin:...`, `NODE_PATH=/usr/local/lib/node_modules` |
+| Go | `PATH=/usr/local/go/bin:...`, `GOCACHE=/mnt/data/go-build` |
+| Rust | `PATH=/usr/local/cargo/bin:...`, `CARGO_HOME=/usr/local/cargo` |
+| Java | `PATH=/opt/java/openjdk/bin:...`, `CLASSPATH=/mnt/data` |
+| TypeScript | Same as Node.js, uses `tsc` + `node` (not ts-node) |
+
+**TypeScript Note:** TypeScript uses a two-step compilation (`tsc file.ts && node file.js`) instead of `ts-node` because ts-node has stdout capture issues when executed via nsenter.
 
 ## Core Components
 

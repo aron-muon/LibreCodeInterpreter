@@ -112,6 +112,47 @@ Code is analyzed for potentially dangerous patterns:
 - **Security context**: Pods run as non-root (`runAsUser: 1000`)
 - **Ephemeral execution**: Pods destroyed immediately after execution
 
+#### Namespace Sharing Security (nsenter)
+
+The sidecar container uses Linux `nsenter` to execute code in the main container's mount namespace. This requires specific pod configuration:
+
+**Required Pod Settings:**
+```yaml
+spec:
+  shareProcessNamespace: true    # Containers can see each other's processes
+  containers:
+  - name: sidecar
+    securityContext:
+      capabilities:
+        add: ["SYS_PTRACE"]      # Required for nsenter to enter namespaces
+```
+
+**Security Implications:**
+
+| Setting | Purpose | Risk Mitigation |
+|---------|---------|-----------------|
+| `shareProcessNamespace` | Allows sidecar to find main container's PID | Only affects containers within the same pod |
+| `SYS_PTRACE` capability | Enables nsenter to enter mount namespace | Scoped to pod only, not host |
+
+**Why This Is Secure:**
+
+1. **Pod-scoped isolation**: `shareProcessNamespace` only shares PIDs between containers in the same pod, not with other pods or the host.
+
+2. **Namespace entry, not privilege escalation**: The sidecar enters the main container's *mount namespace* only (`nsenter -m`), gaining access to its filesystem but not elevated privileges.
+
+3. **Code runs in main container's context**: User code executes using the main container's isolated filesystem, subject to all the same resource limits and network policies.
+
+4. **No host namespace access**: The `SYS_PTRACE` capability is limited to pod-level process visibility and cannot be used to access host processes.
+
+5. **Non-root execution**: Both containers run as non-root (`runAsUser: 1000`), preventing privilege escalation even with `SYS_PTRACE`.
+
+**Alternative Considered:**
+
+Running code directly in the sidecar container was rejected because:
+- Would require installing all language runtimes in the sidecar (bloated image)
+- Would lose the clean separation between executor and runtime
+- Would make per-language resource limits harder to enforce
+
 #### Pod Hardening (Host Info Protection)
 
 Execution pods are hardened to prevent information leakage about the host infrastructure.
