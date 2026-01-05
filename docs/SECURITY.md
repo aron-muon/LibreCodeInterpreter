@@ -59,8 +59,9 @@ All responses include security headers:
 - `X-Frame-Options: DENY`
 - `X-XSS-Protection: 1; mode=block`
 - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
-- `Content-Security-Policy: default-src 'self'`
+- `Content-Security-Policy: default-src 'self'` (varies by endpoint)
 - `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: geolocation=(), microphone=(), camera=()`
 
 ### Request Validation
 
@@ -181,75 +182,40 @@ Kubernetes cluster, or internal network configuration.
 remain accessible because many libraries depend on them. The pod security context and network
 policies address the primary concern of revealing cloud provider and internal network details.
 
-### WAN-Only Network Access
+### Network Isolation
 
-The Code Interpreter API supports an optional WAN-only network mode that allows
-execution pods to access the public internet while maintaining strict
-isolation from internal networks.
-
-#### Overview
-
-When enabled via `ENABLE_WAN_ACCESS=true`, execution pods are configured with
-a Kubernetes NetworkPolicy that:
-
-1. **Allows**: Outbound connections to public internet IPs (all ports)
-2. **Blocks**: Access to private IP ranges and other pods in the cluster
-
-#### Blocked IP Ranges
-
-The following ranges are blocked via NetworkPolicy:
-
-| Range | Description |
-|-------|-------------|
-| `10.0.0.0/8` | Class A private network (includes most K8s pod CIDRs) |
-| `172.16.0.0/12` | Class B private network |
-| `192.168.0.0/16` | Class C private network |
-| `169.254.0.0/16` | Link-local (includes cloud metadata services) |
+Execution pods are isolated via Kubernetes NetworkPolicy:
 
 #### Configuration
 
-```bash
-# Enable WAN access (default: false)
-ENABLE_WAN_ACCESS=true
-
-# Custom DNS servers (optional, defaults to Google and Cloudflare DNS)
-WAN_DNS_SERVERS=8.8.8.8,1.1.1.1,8.8.4.4
+```yaml
+# In helm values.yaml
+execution:
+  networkPolicy:
+    enabled: true      # Enable NetworkPolicy enforcement
+    denyEgress: true   # Block all egress (default: true)
 ```
+
+#### Network Modes
+
+1. **Full Isolation (default)**: `denyEgress: true`
+   - Blocks all outbound connections
+   - Pods cannot access internet or cluster services
+   - Maximum security for untrusted code
+
+2. **Selective Egress**: `denyEgress: false`
+   - Allows DNS (UDP 53) and HTTPS (TCP 443/80)
+   - Enables package downloads (pip, npm, etc.)
+   - Note: Does not block private IP ranges
 
 #### Security Considerations
 
 1. **NetworkPolicy Required**: Your Kubernetes cluster must have a CNI that
    supports NetworkPolicy (Calico, Cilium, etc.).
 
-2. **Public DNS Only**: Only public DNS servers are used to prevent DNS-based
-   attacks that could leak internal network information.
+2. **Default Deny**: All egress is blocked by default for maximum security.
 
-3. **No Inter-Pod Communication**: NetworkPolicy denies all ingress and limits
-   egress to public IPs only.
-
-4. **Cloud Metadata Blocked**: The link-local range (169.254.0.0/16) is blocked,
-   which includes cloud metadata endpoints (169.254.169.254) used by AWS, GCP,
-   and Azure.
-
-5. **Default Off**: WAN access is disabled by default for maximum security.
-
-#### When to Enable WAN Access
-
-Enable WAN access when:
-- Users need to download packages or dependencies (pip, npm, etc.)
-- Code needs to fetch data from public APIs
-- Web scraping or data collection is required
-
-Keep WAN access disabled (default) when:
-- Maximum security isolation is required
-- All dependencies are pre-installed in container images
-- Code should not have any network access
-
-#### Audit Logging
-
-WAN-enabled pods are tracked via labels:
-- `librecodeinterpreter.io/wan-access=true` on each pod
-- NetworkPolicy application is logged at pod creation
+3. **No Inter-Pod Communication**: NetworkPolicy denies all ingress from other pods.
 
 ### State Persistence Security
 

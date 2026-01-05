@@ -316,8 +316,9 @@ def create_pod_manifest(
         # Share process namespace so sidecar can use nsenter to execute in main container
         share_process_namespace=True,
         security_context=client.V1PodSecurityContext(
-            # Note: We don't set run_as_user at pod level because sidecar needs root
-            # Individual containers set their own security contexts
+            # Note: We don't set run_as_user at pod level; each container
+            # sets its own security context (both run as non-root UID 1000,
+            # sidecar has elevated capabilities for nsenter, not root)
             fs_group=run_as_user,
         ),
         # Prevent scheduling on same node as other execution pods
