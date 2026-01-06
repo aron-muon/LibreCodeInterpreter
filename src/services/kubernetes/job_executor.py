@@ -206,7 +206,9 @@ class JobExecutor:
                                     job_name=job.name,
                                     pod_name=job.pod_name,
                                     pod_ip=job.pod_ip,
-                                    elapsed_seconds=round(asyncio.get_event_loop().time() - start_time, 2),
+                                    elapsed_seconds=round(
+                                        asyncio.get_event_loop().time() - start_time, 2
+                                    ),
                                 )
                                 return True
 
