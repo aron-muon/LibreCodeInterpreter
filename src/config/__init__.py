@@ -623,7 +623,9 @@ class Settings(BaseSettings):
 
         for lang, pool_size in pool_sizes.items():
             # Use explicit image override if set, otherwise auto-generate
-            image = image_overrides.get(lang) or self.kubernetes.get_image_for_language(lang)
+            image = image_overrides.get(lang) or self.kubernetes.get_image_for_language(
+                lang
+            )
             configs.append(
                 PoolConfig(
                     language=lang,

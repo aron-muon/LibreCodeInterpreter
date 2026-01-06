@@ -206,7 +206,9 @@ class JobExecutor:
                                     job_name=job.name,
                                     pod_name=job.pod_name,
                                     pod_ip=job.pod_ip,
-                                    elapsed_seconds=round(asyncio.get_event_loop().time() - start_time, 2),
+                                    elapsed_seconds=round(
+                                        asyncio.get_event_loop().time() - start_time, 2
+                                    ),
                                 )
                                 return True
 
@@ -266,6 +268,14 @@ class JobExecutor:
             )
 
         sidecar_url = job.sidecar_url
+        if not sidecar_url:
+            return ExecutionResult(
+                exit_code=1,
+                stdout="",
+                stderr="Job sidecar URL not available",
+                execution_time_ms=0,
+            )
+
         client = await self._get_http_client()
 
         # Upload files if provided
