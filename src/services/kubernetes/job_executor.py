@@ -268,6 +268,14 @@ class JobExecutor:
             )
 
         sidecar_url = job.sidecar_url
+        if not sidecar_url:
+            return ExecutionResult(
+                exit_code=1,
+                stdout="",
+                stderr="Job sidecar URL not available",
+                execution_time_ms=0,
+            )
+
         client = await self._get_http_client()
 
         # Upload files if provided
