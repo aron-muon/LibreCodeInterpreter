@@ -39,7 +39,7 @@ class KubernetesManager:
         self,
         namespace: Optional[str] = None,
         pool_configs: Optional[List[PoolConfig]] = None,
-        sidecar_image: str = "aronmuon/librecodeinterpreter-sidecar:latest",
+        sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest",
         default_cpu_limit: str = "1",
         default_memory_limit: str = "512Mi",
         default_cpu_request: str = "100m",
@@ -77,15 +77,15 @@ class KubernetesManager:
 
         # Language image mappings (can be overridden by pool configs)
         self._language_images: Dict[str, str] = {
-            "python": "aronmuon/librecodeinterpreter-python:latest",
-            "py": "aronmuon/librecodeinterpreter-python:latest",
-            "javascript": "aronmuon/librecodeinterpreter-javascript:latest",
-            "js": "aronmuon/librecodeinterpreter-javascript:latest",
-            "typescript": "aronmuon/librecodeinterpreter-typescript:latest",
-            "ts": "aronmuon/librecodeinterpreter-typescript:latest",
-            "go": "aronmuon/librecodeinterpreter-go:latest",
-            "rust": "aronmuon/librecodeinterpreter-rust:latest",
-            "rs": "aronmuon/librecodeinterpreter-rust:latest",
+            "python": "aronmuon/kubecoderun-python:latest",
+            "py": "aronmuon/kubecoderun-python:latest",
+            "javascript": "aronmuon/kubecoderun-javascript:latest",
+            "js": "aronmuon/kubecoderun-javascript:latest",
+            "typescript": "aronmuon/kubecoderun-typescript:latest",
+            "ts": "aronmuon/kubecoderun-typescript:latest",
+            "go": "aronmuon/kubecoderun-go:latest",
+            "rust": "aronmuon/kubecoderun-rust:latest",
+            "rs": "aronmuon/kubecoderun-rust:latest",
         }
 
         # Track active executions
@@ -150,7 +150,7 @@ class KubernetesManager:
         # Fall back to default mapping
         return self._language_images.get(
             language.lower(),
-            f"aronmuon/librecodeinterpreter-{language}:latest",
+            f"aronmuon/kubecoderun-{language}:latest",
         )
 
     def uses_pool(self, language: str) -> bool:

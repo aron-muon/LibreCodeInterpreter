@@ -76,7 +76,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="LibreCodeInterpreter Sidecar",
+    title="KubeCodeRun Sidecar",
     description="HTTP API for code execution in Kubernetes pods",
     version="1.1.1",
     lifespan=lifespan,

@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "librecodeinterpreter.fullname" . }}
+  name: {{ include "kubecoderun.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "librecodeinterpreter.labels" . | nindent 4 }}
+    {{- include "kubecoderun.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -13,4 +13,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "librecodeinterpreter.selectorLabels" . | nindent 4 }}
+    {{- include "kubecoderun.selectorLabels" . | nindent 4 }}

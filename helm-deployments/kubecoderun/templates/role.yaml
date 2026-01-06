@@ -2,10 +2,10 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "librecodeinterpreter.fullname" . }}-executor
-  namespace: {{ include "librecodeinterpreter.executionNamespace" . }}
+  name: {{ include "kubecoderun.fullname" . }}-executor
+  namespace: {{ include "kubecoderun.executionNamespace" . }}
   labels:
-    {{- include "librecodeinterpreter.labels" . | nindent 4 }}
+    {{- include "kubecoderun.labels" . | nindent 4 }}
     app.kubernetes.io/component: executor
 rules:
   # Pod management for warm pools

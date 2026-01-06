@@ -165,12 +165,12 @@ class PodPool:
         pod_name = self._generate_pod_name()
 
         labels = {
-            "app.kubernetes.io/name": "librecodeinterpreter",
+            "app.kubernetes.io/name": "kubecoderun",
             "app.kubernetes.io/component": "execution",
-            "app.kubernetes.io/managed-by": "librecodeinterpreter",
-            "librecodeinterpreter.io/language": self.language,
-            "librecodeinterpreter.io/type": "pool",
-            "librecodeinterpreter.io/pool-status": "warm",
+            "app.kubernetes.io/managed-by": "kubecoderun",
+            "kubecoderun.io/language": self.language,
+            "kubecoderun.io/type": "pool",
+            "kubecoderun.io/pool-status": "warm",
         }
 
         pod_manifest = create_pod_manifest(

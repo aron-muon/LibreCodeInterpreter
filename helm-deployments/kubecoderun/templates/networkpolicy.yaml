@@ -2,16 +2,16 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "librecodeinterpreter.fullname" . }}-execution-isolation
-  namespace: {{ include "librecodeinterpreter.executionNamespace" . }}
+  name: {{ include "kubecoderun.fullname" . }}-execution-isolation
+  namespace: {{ include "kubecoderun.executionNamespace" . }}
   labels:
-    {{- include "librecodeinterpreter.labels" . | nindent 4 }}
+    {{- include "kubecoderun.labels" . | nindent 4 }}
     app.kubernetes.io/component: network-policy
 spec:
-  # Apply to all execution pods (managed by librecodeinterpreter)
+  # Apply to all execution pods (managed by kubecoderun)
   podSelector:
     matchLabels:
-      app.kubernetes.io/managed-by: librecodeinterpreter
+      app.kubernetes.io/managed-by: kubecoderun
   policyTypes:
     - Ingress
     - Egress
@@ -20,7 +20,7 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              {{- include "librecodeinterpreter.selectorLabels" . | nindent 14 }}
+              {{- include "kubecoderun.selectorLabels" . | nindent 14 }}
       ports:
         - protocol: TCP
           port: {{ .Values.execution.sidecar.port }}

@@ -21,7 +21,7 @@ class MinIOConfig(BaseSettings):
     access_key: Optional[str] = Field(default=None, alias="minio_access_key")
     secret_key: Optional[str] = Field(default=None, alias="minio_secret_key")
     secure: bool = Field(default=False, alias="minio_secure")
-    bucket: str = Field(default="code-interpreter-files", alias="minio_bucket")
+    bucket: str = Field(default="kubecoderun-files", alias="minio_bucket")
     region: str = Field(default="us-east-1", alias="minio_region")
     use_iam: bool = Field(default=False, alias="minio_use_iam")
 

@@ -1,34 +1,34 @@
-{{- include "librecodeinterpreter.validateMinioConfig" . -}}
+{{- include "kubecoderun.validateMinioConfig" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "librecodeinterpreter.fullname" . }}
+  name: {{ include "kubecoderun.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "librecodeinterpreter.labels" . | nindent 4 }}
+    {{- include "kubecoderun.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "librecodeinterpreter.selectorLabels" . | nindent 6 }}
+      {{- include "kubecoderun.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        {{- if and (not .Values.secretsStore.enabled) (include "librecodeinterpreter.needsHelmSecret" .) }}
+        {{- if and (not .Values.secretsStore.enabled) (include "kubecoderun.needsHelmSecret" .) }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
         {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "librecodeinterpreter.selectorLabels" . | nindent 8 }}
+        {{- include "kubecoderun.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "librecodeinterpreter.serviceAccountName" . }}
+      serviceAccountName: {{ include "kubecoderun.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -69,16 +69,16 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           envFrom:
             - configMapRef:
-                name: {{ include "librecodeinterpreter.fullname" . }}-config
+                name: {{ include "kubecoderun.fullname" . }}-config
             {{- if .Values.secretsStore.enabled }}
             # Use secrets synced from AWS Secrets Manager via CSI driver
             - secretRef:
-                name: {{ include "librecodeinterpreter.fullname" . }}-aws-secrets
+                name: {{ include "kubecoderun.fullname" . }}-aws-secrets
             {{- else }}
-            {{- if include "librecodeinterpreter.needsHelmSecret" . }}
+            {{- if include "kubecoderun.needsHelmSecret" . }}
             # Use Helm-managed secrets
             - secretRef:
-                name: {{ include "librecodeinterpreter.fullname" . }}-secrets
+                name: {{ include "kubecoderun.fullname" . }}-secrets
             {{- end }}
             {{- if .Values.api.existingSecret }}
             # External secret for API keys (API_KEY, MASTER_API_KEY)
@@ -115,7 +115,7 @@ spec:
             driver: secrets-store.csi.k8s.io
             readOnly: true
             volumeAttributes:
-              secretProviderClass: {{ include "librecodeinterpreter.fullname" . }}-secrets
+              secretProviderClass: {{ include "kubecoderun.fullname" . }}-secrets
         {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

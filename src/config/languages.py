@@ -189,7 +189,7 @@ def get_image_for_language(
     """Get container image for a language.
 
     Image format: {registry}-{base_image}:{tag}
-    e.g., aronmuon/librecodeinterpreter-python:latest
+    e.g., aronmuon/kubecoderun-python:latest
     """
     lang = get_language(code)
     if lang:

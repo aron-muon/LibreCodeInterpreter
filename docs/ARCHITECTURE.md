@@ -1,14 +1,14 @@
-# LibreCodeInterpreter Architecture
+# KubeCodeRun Architecture
 
 ## Overview
 
-LibreCodeInterpreter is a secure API for executing code in isolated Kubernetes pods. It uses a **Kubernetes-native architecture** with warm pod pools for low-latency execution and Jobs for cold-path languages.
+KubeCodeRun is a secure API for executing code in isolated Kubernetes pods. It uses a **Kubernetes-native architecture** with warm pod pools for low-latency execution and Jobs for cold-path languages.
 
 ## High-Level Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         LibreCodeInterpreter API                             │
+│                         KubeCodeRun API                             │
 │                         (FastAPI Application)                                │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -252,9 +252,9 @@ POD_POOL_EXHAUSTION_TRIGGER=true   # Trigger immediate replenishment when exhaus
 ### Kubernetes Settings
 
 ```python
-K8S_NAMESPACE=librecodeinterpreter
-K8S_SIDECAR_IMAGE=aronmuon/librecodeinterpreter-sidecar:latest
-K8S_IMAGE_REGISTRY=aronmuon/librecodeinterpreter
+K8S_NAMESPACE=kubecoderun
+K8S_SIDECAR_IMAGE=aronmuon/kubecoderun-sidecar:latest
+K8S_IMAGE_REGISTRY=aronmuon/kubecoderun
 K8S_IMAGE_TAG=latest
 K8S_CPU_LIMIT=1
 K8S_MEMORY_LIMIT=512Mi
@@ -341,7 +341,7 @@ docker/
     └── requirements.txt
 
 helm-deployments/
-└── librecodeinterpreter/  # Helm chart
+└── kubecoderun/  # Helm chart
     ├── templates/
     │   ├── deployment.yaml
     │   ├── service.yaml
@@ -378,8 +378,8 @@ The API exposes metrics for:
 ### Helm Installation
 
 ```bash
-helm install librecodeinterpreter ./helm-deployments/librecodeinterpreter \
-  --namespace librecodeinterpreter \
+helm install kubecoderun ./helm-deployments/kubecoderun \
+  --namespace kubecoderun \
   --create-namespace \
   --set replicaCount=2 \
   --set execution.languages.python.poolSize=5

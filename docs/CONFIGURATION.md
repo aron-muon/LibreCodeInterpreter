@@ -164,7 +164,7 @@ MinIO provides S3-compatible object storage for files.
 | `MINIO_ACCESS_KEY` | (required)               | MinIO access key (required when not using IAM) |
 | `MINIO_SECRET_KEY` | (required)               | MinIO secret key (required when not using IAM) |
 | `MINIO_SECURE`     | `false`                  | Use HTTPS for MinIO connections             |
-| `MINIO_BUCKET`     | `code-interpreter-files` | Bucket name for file storage                |
+| `MINIO_BUCKET`     | `kubecoderun-files` | Bucket name for file storage                |
 | `MINIO_REGION`     | `us-east-1`              | MinIO region                                |
 | `MINIO_USE_IAM`    | `false`                  | Use IAM credentials instead of keys         |
 
@@ -175,8 +175,8 @@ Kubernetes is used for secure code execution in isolated pods.
 | Variable               | Default                                      | Description                              |
 | ---------------------- | -------------------------------------------- | ---------------------------------------- |
 | `K8S_NAMESPACE`        | `""` (uses API's namespace)                  | Namespace for execution pods             |
-| `K8S_SIDECAR_IMAGE`    | `aronmuon/librecodeinterpreter-sidecar:latest` | HTTP sidecar image for pod communication |
-| `K8S_IMAGE_REGISTRY`   | `aronmuon/librecodeinterpreter`              | Registry prefix for language images      |
+| `K8S_SIDECAR_IMAGE`    | `aronmuon/kubecoderun-sidecar:latest` | HTTP sidecar image for pod communication |
+| `K8S_IMAGE_REGISTRY`   | `aronmuon/kubecoderun`              | Registry prefix for language images      |
 | `K8S_IMAGE_TAG`        | `latest`                                     | Image tag for language images            |
 | `K8S_CPU_LIMIT`        | `1`                                          | CPU limit per execution pod              |
 | `K8S_MEMORY_LIMIT`     | `512Mi`                                      | Memory limit per execution pod           |

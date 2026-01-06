@@ -23,7 +23,7 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             # Use version from Chart.yaml for manual runs
-            VERSION=$(grep '^version:' helm-deployments/librecodeinterpreter/Chart.yaml | awk '{print $2}')
+            VERSION=$(grep '^version:' helm-deployments/kubecoderun/Chart.yaml | awk '{print $2}')
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
           else
             # Use tag name (strip 'v' prefix if present)
@@ -34,16 +34,16 @@ jobs:
 
       - name: Update Chart.yaml version
         run: |
-          sed -i "s/^version:.*/version: ${{ steps.version.outputs.version }}/" helm-deployments/librecodeinterpreter/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"${{ steps.version.outputs.version }}\"/" helm-deployments/librecodeinterpreter/Chart.yaml
-          cat helm-deployments/librecodeinterpreter/Chart.yaml
+          sed -i "s/^version:.*/version: ${{ steps.version.outputs.version }}/" helm-deployments/kubecoderun/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${{ steps.version.outputs.version }}\"/" helm-deployments/kubecoderun/Chart.yaml
+          cat helm-deployments/kubecoderun/Chart.yaml
 
       - name: Lint Helm chart
-        run: helm lint helm-deployments/librecodeinterpreter
+        run: helm lint helm-deployments/kubecoderun
 
       - name: Package Helm chart
         run: |
-          helm package helm-deployments/librecodeinterpreter --destination ./helm-package
+          helm package helm-deployments/kubecoderun --destination ./helm-package
           ls -la ./helm-package
 
       - name: Login to Artifactory OCI registry

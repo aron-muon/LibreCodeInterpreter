@@ -1,11 +1,11 @@
 apiVersion: v2
-name: librecodeinterpreter
-description: LibreCodeInterpreter - Kubernetes-native code execution service
+name: kubecoderun
+description: KubeCodeRun - Kubernetes-native code execution service
 type: application
 version: 1.1.1
 appVersion: "1.1.1"
 keywords:
-  - code-interpreter
+  - kubecoderun
   - code-execution
   - kubernetes
   - python

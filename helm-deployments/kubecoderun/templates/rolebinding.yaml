@@ -2,18 +2,18 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "librecodeinterpreter.fullname" . }}-executor
-  namespace: {{ include "librecodeinterpreter.executionNamespace" . }}
+  name: {{ include "kubecoderun.fullname" . }}-executor
+  namespace: {{ include "kubecoderun.executionNamespace" . }}
   labels:
-    {{- include "librecodeinterpreter.labels" . | nindent 4 }}
+    {{- include "kubecoderun.labels" . | nindent 4 }}
     app.kubernetes.io/component: executor
 subjects:
   # Bind to the API service account (the API pod creates execution pods)
   - kind: ServiceAccount
-    name: {{ include "librecodeinterpreter.serviceAccountName" . }}
+    name: {{ include "kubecoderun.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: Role
-  name: {{ include "librecodeinterpreter.fullname" . }}-executor
+  name: {{ include "kubecoderun.fullname" . }}-executor
   apiGroup: rbac.authorization.k8s.io
 {{- end }}

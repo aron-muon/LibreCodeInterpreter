@@ -1,10 +1,10 @@
-# LibreCodeInterpreter Helm Chart Values
+# KubeCodeRun Helm Chart Values
 
 # API Deployment Configuration
 replicaCount: 1
 
 image:
-  repository: aronmuon/librecodeinterpreter-api
+  repository: aronmuon/kubecoderun-api
   pullPolicy: IfNotPresent
   tag: "latest"
 
@@ -39,7 +39,7 @@ ingress:
   className: ""
   annotations: {}
   hosts:
-    - host: librecodeinterpreter.local
+    - host: kubecoderun.local
       paths:
         - path: /
           pathType: Prefix
@@ -115,7 +115,7 @@ minio:
   accessKey: ""
   secretKey: ""
   secure: false
-  bucket: "code-interpreter-files"
+  bucket: "kubecoderun-files"
   # Use IAM role for authentication (IRSA on EKS)
   # When true, accessKey and secretKey are not required
   useIAM: false
@@ -145,8 +145,8 @@ execution:
 
   # Image registry configuration
   # Images are named: {imageRegistry}-{language}:{imageTag}
-  # e.g., aronmuon/librecodeinterpreter-python:latest
-  imageRegistry: "aronmuon/librecodeinterpreter"
+  # e.g., aronmuon/kubecoderun-python:latest
+  imageRegistry: "aronmuon/kubecoderun"
   imageTag: "latest"
   # Image pull policy for execution pods (IfNotPresent, Always, Never)
   # Use "Always" when using :latest tags to ensure fresh images
@@ -155,12 +155,12 @@ execution:
   # Service account for execution pods (with pod/job create permissions)
   serviceAccount:
     create: true
-    name: "librecodeinterpreter-executor"
+    name: "kubecoderun-executor"
     annotations: {}
 
   # Sidecar container configuration
   sidecar:
-    image: aronmuon/librecodeinterpreter-sidecar:latest
+    image: aronmuon/kubecoderun-sidecar:latest
     port: 8080
 
   # Per-language pool configuration
@@ -168,40 +168,40 @@ execution:
   # poolSize = 0: use Jobs (cold start)
   languages:
     python:
-      image: aronmuon/librecodeinterpreter-python:latest
+      image: aronmuon/kubecoderun-python:latest
       poolSize: 5
     javascript:
-      image: aronmuon/librecodeinterpreter-javascript:latest
+      image: aronmuon/kubecoderun-javascript:latest
       poolSize: 2
     typescript:
-      image: aronmuon/librecodeinterpreter-typescript:latest
+      image: aronmuon/kubecoderun-typescript:latest
       poolSize: 0
     go:
-      image: aronmuon/librecodeinterpreter-go:latest
+      image: aronmuon/kubecoderun-go:latest
       poolSize: 0
     java:
-      image: aronmuon/librecodeinterpreter-java:latest
+      image: aronmuon/kubecoderun-java:latest
       poolSize: 0
     rust:
-      image: aronmuon/librecodeinterpreter-rust:latest
+      image: aronmuon/kubecoderun-rust:latest
       poolSize: 0
     c:
-      image: aronmuon/librecodeinterpreter-c-cpp:latest
+      image: aronmuon/kubecoderun-c-cpp:latest
       poolSize: 0
     cpp:
-      image: aronmuon/librecodeinterpreter-c-cpp:latest
+      image: aronmuon/kubecoderun-c-cpp:latest
       poolSize: 0
     php:
-      image: aronmuon/librecodeinterpreter-php:latest
+      image: aronmuon/kubecoderun-php:latest
       poolSize: 0
     r:
-      image: aronmuon/librecodeinterpreter-r:latest
+      image: aronmuon/kubecoderun-r:latest
       poolSize: 0
     fortran:
-      image: aronmuon/librecodeinterpreter-fortran:latest
+      image: aronmuon/kubecoderun-fortran:latest
       poolSize: 0
     d:
-      image: aronmuon/librecodeinterpreter-d:latest
+      image: aronmuon/kubecoderun-d:latest
       poolSize: 0
 
   # Job settings (for languages with poolSize=0)
@@ -259,7 +259,7 @@ secretsStore:
   objects: []
   # Example:
   # - secretArn: "arn:aws:secretsmanager:us-west-2:123456789:secret:my-secret"
-  #   objectAlias: "code-interpreter-env"
+  #   objectAlias: "kubecoderun-env"
   #   jmesPath:
   #     - path: "REDIS_URL"
   #       objectAlias: "REDIS_URL"

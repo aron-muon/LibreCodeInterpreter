@@ -7,13 +7,13 @@ ARG VERSION=1.1.1
 ARG VCS_REF
 
 # Add metadata
-LABEL maintainer="LibreCodeInterpreter Contributors" \
-    org.opencontainers.image.title="LibreCodeInterpreter" \
+LABEL maintainer="KubeCodeRun Contributors" \
+    org.opencontainers.image.title="KubeCodeRun" \
     org.opencontainers.image.description="Secure API for executing code in isolated environments" \
     org.opencontainers.image.version="${VERSION}" \
     org.opencontainers.image.created="${BUILD_DATE}" \
     org.opencontainers.image.revision="${VCS_REF}" \
-    org.opencontainers.image.source="https://github.com/LibreCodeInterpreter/LibreCodeInterpreter" \
+    org.opencontainers.image.source="https://github.com/KubeCodeRun/KubeCodeRun" \
     org.opencontainers.image.licenses="Apache-2.0"
 
 # Install system dependencies for building

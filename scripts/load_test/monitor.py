@@ -163,10 +163,10 @@ class ResourceMonitor:
                 except (json.JSONDecodeError, ValueError):
                     continue
 
-            # Filter for code-interpreter containers only
+            # Filter for kubecoderun containers only
             code_interpreter_containers = [
                 c for c in containers
-                if "code-interpreter" in c["name"].lower() or "executor" in c["name"].lower()
+                if "kubecoderun" in c["name"].lower() or "executor" in c["name"].lower()
             ]
 
             return DockerStats(

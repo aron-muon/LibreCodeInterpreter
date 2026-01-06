@@ -17,8 +17,8 @@ This document provides detailed instructions for setting up the development envi
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/usnavy13/LibreCodeInterpreter.git
-   cd LibreCodeInterpreter
+   git clone https://github.com/aron-muon/KubeCodeRun.git
+   cd KubeCodeRun
    ```
 
 2. **Create a virtual environment**
@@ -75,19 +75,19 @@ The API requires language-specific execution images and the HTTP sidecar image.
 
 ```bash
 # Build individual language images (from project root)
-docker build -f docker/python.Dockerfile -t librecodeinterpreter/python:latest .
-docker build -f docker/nodejs.Dockerfile -t librecodeinterpreter/nodejs:latest .
-docker build -f docker/go.Dockerfile -t librecodeinterpreter/go:latest .
-docker build -f docker/java.Dockerfile -t librecodeinterpreter/java:latest .
-docker build -f docker/rust.Dockerfile -t librecodeinterpreter/rust:latest .
-docker build -f docker/php.Dockerfile -t librecodeinterpreter/php:latest .
-docker build -f docker/c-cpp.Dockerfile -t librecodeinterpreter/c-cpp:latest .
-docker build -f docker/r.Dockerfile -t librecodeinterpreter/r:latest .
-docker build -f docker/fortran.Dockerfile -t librecodeinterpreter/fortran:latest .
-docker build -f docker/d.Dockerfile -t librecodeinterpreter/d:latest .
+docker build -f docker/python.Dockerfile -t kubecoderun/python:latest .
+docker build -f docker/nodejs.Dockerfile -t kubecoderun/nodejs:latest .
+docker build -f docker/go.Dockerfile -t kubecoderun/go:latest .
+docker build -f docker/java.Dockerfile -t kubecoderun/java:latest .
+docker build -f docker/rust.Dockerfile -t kubecoderun/rust:latest .
+docker build -f docker/php.Dockerfile -t kubecoderun/php:latest .
+docker build -f docker/c-cpp.Dockerfile -t kubecoderun/c-cpp:latest .
+docker build -f docker/r.Dockerfile -t kubecoderun/r:latest .
+docker build -f docker/fortran.Dockerfile -t kubecoderun/fortran:latest .
+docker build -f docker/d.Dockerfile -t kubecoderun/d:latest .
 
 # Build the HTTP sidecar image
-docker build -t librecodeinterpreter/sidecar:latest docker/sidecar/
+docker build -t kubecoderun/sidecar:latest docker/sidecar/
 ```
 
 For more details on Kubernetes pod management, see [ARCHITECTURE.md](ARCHITECTURE.md).

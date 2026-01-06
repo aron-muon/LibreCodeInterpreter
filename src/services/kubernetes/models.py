@@ -112,7 +112,7 @@ class PodSpec:
     run_as_non_root: bool = True
 
     # Sidecar configuration
-    sidecar_image: str = "aronmuon/librecodeinterpreter-sidecar:latest"
+    sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest"
     sidecar_port: int = 8080
 
 
@@ -123,7 +123,7 @@ class PoolConfig:
     language: str
     image: str
     pool_size: int = 0  # 0 = use Jobs instead of pool
-    sidecar_image: str = "aronmuon/librecodeinterpreter-sidecar:latest"
+    sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest"
 
     # Resource limits (can override defaults)
     cpu_limit: Optional[str] = None

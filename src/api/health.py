@@ -21,7 +21,7 @@ async def basic_health_check():
         "status": "healthy",
         "version": "1.1.1",
         "timestamp": "2025-01-18T00:00:00Z",
-        "service": "code-interpreter-api",
+        "service": "kubecoderun-api",
     }
 
 

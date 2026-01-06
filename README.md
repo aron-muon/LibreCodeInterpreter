@@ -1,8 +1,8 @@
-# LibreCodeInterpreter
+# KubeCodeRun
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![CI Status](https://github.com/usnavy13/LibreCodeInterpreter/actions/workflows/lint.yml/badge.svg)](https://github.com/usnavy13/LibreCodeInterpreter/actions/workflows/lint.yml)
+[![CI Status](https://github.com/aron-muon/KubeCodeRun/actions/workflows/lint.yml/badge.svg)](https://github.com/aron-muon/KubeCodeRun/actions/workflows/lint.yml)
 
 A secure, open-source code interpreter API that provides sandboxed code execution in isolated Kubernetes pods. Compatible with LibreChat's Code Interpreter API.
 
@@ -21,15 +21,15 @@ Get up and running in minutes with Kubernetes deployment.
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/usnavy13/LibreCodeInterpreter.git
-   cd LibreCodeInterpreter
+   git clone https://github.com/aron-muon/KubeCodeRun.git
+   cd KubeCodeRun
    ```
 
 2. **Deploy with Helm**
 
    ```bash
-   helm install librecodeinterpreter ./helm-deployments/librecodeinterpreter \
-     --namespace librecodeinterpreter \
+   helm install kubecoderun ./helm-deployments/kubecoderun \
+     --namespace kubecoderun \
      --create-namespace \
      --set replicaCount=2 \
      --set execution.languages.python.poolSize=5
@@ -39,7 +39,7 @@ Get up and running in minutes with Kubernetes deployment.
 
    ```bash
    # Port-forward for local access
-   kubectl -n librecodeinterpreter port-forward svc/librecodeinterpreter 8000:8000
+   kubectl -n kubecoderun port-forward svc/kubecoderun 8000:8000
    ```
 
 The API will be available at `http://localhost:8000`.
@@ -88,7 +88,7 @@ The dashboard requires the master API key for authentication.
 
 ## Architecture
 
-The LibreCodeInterpreter is built with a focus on security, speed, and scalability. It uses a **Kubernetes-native architecture** with **FastAPI** for the web layer, **warm pod pools** for low-latency execution, and **Redis** for session management.
+The KubeCodeRun is built with a focus on security, speed, and scalability. It uses a **Kubernetes-native architecture** with **FastAPI** for the web layer, **warm pod pools** for low-latency execution, and **Redis** for session management.
 
 Key features include:
 
@@ -161,6 +161,10 @@ Please see [SECURITY.md](docs/SECURITY.md) for our security policy and reporting
 ## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started, our code of conduct, and the pull request process.
+
+## Acknowledgments
+
+This project was originally a fork of [@usnavy13](https://github.com/usnavy13)'s [LibreCodeInterpreter](https://github.com/usnavy13/LibreCodeInterpreter). Their work was foundational in developing the HTTP approach to running code execution.
 
 ## License
 

@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "librecodeinterpreter.name" -}}
+{{- define "kubecoderun.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "librecodeinterpreter.fullname" -}}
+{{- define "kubecoderun.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "librecodeinterpreter.chart" -}}
+{{- define "kubecoderun.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "librecodeinterpreter.labels" -}}
-helm.sh/chart: {{ include "librecodeinterpreter.chart" . }}
-{{ include "librecodeinterpreter.selectorLabels" . }}
+{{- define "kubecoderun.labels" -}}
+helm.sh/chart: {{ include "kubecoderun.chart" . }}
+{{ include "kubecoderun.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -43,17 +43,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "librecodeinterpreter.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "librecodeinterpreter.name" . }}
+{{- define "kubecoderun.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "kubecoderun.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use for API
 */}}
-{{- define "librecodeinterpreter.serviceAccountName" -}}
+{{- define "kubecoderun.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "librecodeinterpreter.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "kubecoderun.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
@@ -62,9 +62,9 @@ Create the name of the service account to use for API
 {{/*
 Create the name of the executor service account
 */}}
-{{- define "librecodeinterpreter.executorServiceAccountName" -}}
+{{- define "kubecoderun.executorServiceAccountName" -}}
 {{- if .Values.execution.serviceAccount.create }}
-{{- default (printf "%s-executor" (include "librecodeinterpreter.fullname" .)) .Values.execution.serviceAccount.name }}
+{{- default (printf "%s-executor" (include "kubecoderun.fullname" .)) .Values.execution.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.execution.serviceAccount.name }}
 {{- end }}
@@ -73,14 +73,14 @@ Create the name of the executor service account
 {{/*
 Execution namespace
 */}}
-{{- define "librecodeinterpreter.executionNamespace" -}}
+{{- define "kubecoderun.executionNamespace" -}}
 {{- default .Release.Namespace .Values.execution.namespace }}
 {{- end }}
 
 {{/*
 Redis URL
 */}}
-{{- define "librecodeinterpreter.redisUrl" -}}
+{{- define "kubecoderun.redisUrl" -}}
 {{- if .Values.redis.url }}
 {{- .Values.redis.url }}
 {{- else if .Values.redis.host }}
@@ -101,7 +101,7 @@ Returns true if any of the following conditions are met:
 - redis.existingSecret is not set (REDIS_URL needs to be generated)
 - minio.existingSecret is not set AND minio.useIAM is false (S3 credentials needed)
 */}}
-{{- define "librecodeinterpreter.needsHelmSecret" -}}
+{{- define "kubecoderun.needsHelmSecret" -}}
 {{- if or (not .Values.api.existingSecret) (not .Values.redis.existingSecret) (and (not .Values.minio.existingSecret) (not .Values.minio.useIAM)) }}
 {{- true }}
 {{- end }}
@@ -111,7 +111,7 @@ Returns true if any of the following conditions are met:
 Validate MinIO/S3 configuration
 When not using existingSecret or IAM, accessKey and secretKey must be provided.
 */}}
-{{- define "librecodeinterpreter.validateMinioConfig" -}}
+{{- define "kubecoderun.validateMinioConfig" -}}
 {{- if and (not .Values.minio.existingSecret) (not .Values.minio.useIAM) }}
 {{- if or (not .Values.minio.accessKey) (not .Values.minio.secretKey) }}
 {{- fail "minio.accessKey and minio.secretKey are required when not using existingSecret or IAM" -}}

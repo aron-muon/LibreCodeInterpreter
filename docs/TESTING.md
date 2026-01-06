@@ -377,7 +377,7 @@ pytest --cov=src --cov-report=xml tests/
 1. **Check infrastructure:**
 
    ```bash
-   kubectl get pods -n librecodeinterpreter  # All pods should be "Running"
+   kubectl get pods -n kubecoderun  # All pods should be "Running"
    ```
 
 2. **Check API health:**
@@ -388,7 +388,7 @@ pytest --cov=src --cov-report=xml tests/
 
 3. **Check logs:**
    ```bash
-   kubectl logs -n librecodeinterpreter deployment/librecodeinterpreter
+   kubectl logs -n kubecoderun deployment/kubecoderun
    ```
 
 ### Async Test Issues

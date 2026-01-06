@@ -9,7 +9,7 @@
 
 ## Reporting a Vulnerability
 
-We take the security of LibreCodeInterpreter seriously. If you believe you have found a security vulnerability, please report it to us as described below.
+We take the security of KubeCodeRun seriously. If you believe you have found a security vulnerability, please report it to us as described below.
 
 ### Disclosure Policy
 
@@ -17,7 +17,7 @@ In the interest of protecting our users, we ask that you do not share informatio
 
 ### How to Report
 
-To report a vulnerability, please email aron@muonspace.com or open a **Security Advisory** at https://github.com/usnavy13/LibreCodeInterpreter/security/advisories/new.
+To report a vulnerability, please email aron@muonspace.com or open a **Security Advisory** at https://github.com/aron-muon/KubeCodeRun/security/advisories/new.
 
 Please include:
 
@@ -30,4 +30,4 @@ Please include:
 
 We will acknowledge receipt of your report within 48 hours and will strive to provide you with an update on our analysis and planned resolution within 1 week.
 
-Thank you for helping keep LibreCodeInterpreter secure!
+Thank you for helping keep KubeCodeRun secure!

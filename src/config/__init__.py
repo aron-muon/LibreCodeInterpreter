@@ -106,7 +106,7 @@ class Settings(BaseSettings):
     minio_access_key: Optional[str] = Field(default=None)
     minio_secret_key: Optional[str] = Field(default=None)
     minio_secure: bool = Field(default=False)
-    minio_bucket: str = Field(default="code-interpreter-files")
+    minio_bucket: str = Field(default="kubecoderun-files")
     minio_region: str = Field(default="us-east-1")
     minio_use_iam: bool = Field(
         default=False,
@@ -119,11 +119,11 @@ class Settings(BaseSettings):
         description="Namespace for execution pods (empty = use API's namespace)",
     )
     k8s_service_account: str = Field(
-        default="librecodeinterpreter-executor",
+        default="kubecoderun-executor",
         description="Service account for execution pods",
     )
     k8s_sidecar_image: str = Field(
-        default="aronmuon/librecodeinterpreter-sidecar:latest",
+        default="aronmuon/kubecoderun-sidecar:latest",
         description="Sidecar container image for pod communication",
     )
     k8s_sidecar_port: int = Field(
@@ -155,7 +155,7 @@ class Settings(BaseSettings):
         description="Maximum execution time for Jobs",
     )
     k8s_image_registry: str = Field(
-        default="aronmuon/librecodeinterpreter",
+        default="aronmuon/kubecoderun",
         description="Container image registry prefix (images: {registry}-{language}:{tag})",
     )
     k8s_image_tag: str = Field(
@@ -248,7 +248,7 @@ class Settings(BaseSettings):
         description="Enable WAN-only network access for execution pods",
     )
     wan_network_name: str = Field(
-        default="code-interpreter-wan",
+        default="kubecoderun-wan",
         description="Network name for WAN-access pods",
     )
     wan_dns_servers: List[str] = Field(
@@ -405,7 +405,7 @@ class Settings(BaseSettings):
             if data.get("supported_languages"):
                 return data
 
-            registry = data.get("k8s_image_registry", "aronmuon/librecodeinterpreter")
+            registry = data.get("k8s_image_registry", "aronmuon/kubecoderun")
             tag = data.get("k8s_image_tag", "latest")
             data["supported_languages"] = {
                 code: {

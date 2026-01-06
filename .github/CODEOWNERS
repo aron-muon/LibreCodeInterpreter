@@ -1,16 +1,16 @@
 # Default owner for everything
-* @usnavy13
+* @aron-muon
 
 # Security-sensitive files require owner review
-/src/middleware/auth.py @usnavy13
-/src/middleware/security.py @usnavy13
-/src/services/auth.py @usnavy13
-/src/services/api_key_manager.py @usnavy13
-/src/config/security.py @usnavy13
-/docker/*.Dockerfile @usnavy13
+/src/middleware/auth.py @aron-muon
+/src/middleware/security.py @aron-muon
+/src/services/auth.py @aron-muon
+/src/services/api_key_manager.py @aron-muon
+/src/config/security.py @aron-muon
+/docker/*.Dockerfile @aron-muon
 
 # CI/CD changes require owner review
-/.github/workflows/ @usnavy13
+/.github/workflows/ @aron-muon
 
 # Documentation can be more open (remove this line to require review)
 # /docs/ 
