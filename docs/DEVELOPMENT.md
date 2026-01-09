@@ -6,7 +6,9 @@ This document provides detailed instructions for setting up the development envi
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.13+
+- [uv](https://docs.astral.sh/uv/) (package manager)
+- [just](https://github.com/casey/just) (command runner)
 - Kubernetes cluster (1.24+) or Docker for local development
 - Redis
 - MinIO (or S3-compatible storage)
@@ -21,36 +23,62 @@ This document provides detailed instructions for setting up the development envi
    cd KubeCodeRun
    ```
 
-2. **Create a virtual environment**
+2. **Install dependencies with uv**
 
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   just install
+   # Or directly: uv sync
    ```
 
-3. **Install dependencies**
+   This creates a virtual environment in `.venv` and installs all dependencies.
 
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set up environment variables**
+3. **Set up environment variables**
 
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
    ```
 
-5. **Start infrastructure services**
+4. **Start infrastructure services**
 
    ```bash
-   docker-compose up -d
+   just docker-up
+   # Or: docker-compose up -d
    ```
 
-6. **Run the API server**
+5. **Run the API server**
    ```bash
-   uvicorn src.main:app --reload
+   just run
+   # Or: uv run uvicorn src.main:app --reload
    ```
+
+## Development Tools
+
+This project uses modern Python tooling:
+
+| Tool | Purpose | Command |
+|------|---------|---------|
+| **uv** | Package management | `uv sync`, `uv add <pkg>` |
+| **just** | Task runner | `just <recipe>` |
+| **ruff** | Linting & formatting | `just lint`, `just format` |
+| **ty** | Type checking | `just typecheck` |
+
+### Available just recipes
+
+```bash
+just help           # Show all available recipes
+just install        # Install dependencies
+just run            # Start dev server
+just lint           # Run ruff linter
+just format         # Format code with ruff
+just typecheck      # Run ty type checker
+just test           # Run all tests
+just test-unit      # Run unit tests only
+just test-cov       # Run tests with coverage
+just clean          # Remove build artifacts
+just docker-up      # Start Redis + MinIO
+just docker-down    # Stop infrastructure
+```
 
 ## Testing
 
@@ -60,13 +88,13 @@ For detailed testing instructions, please refer to [TESTING.md](TESTING.md).
 
 ```bash
 # Run unit tests
-pytest tests/unit/
+just test-unit
 
 # Run integration tests (requires Docker/Redis/MinIO)
-pytest tests/integration/
+just test-integration
 
 # Run all tests with coverage
-pytest --cov=src tests/
+just test-cov
 ```
 
 ## Building Container Images

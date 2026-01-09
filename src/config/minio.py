@@ -1,6 +1,7 @@
 """MinIO/S3 configuration."""
 
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -18,8 +19,8 @@ class MinIOConfig(BaseSettings):
     )
 
     endpoint: str = Field(default="localhost:9000", alias="minio_endpoint")
-    access_key: Optional[str] = Field(default=None, alias="minio_access_key")
-    secret_key: Optional[str] = Field(default=None, alias="minio_secret_key")
+    access_key: str | None = Field(default=None, alias="minio_access_key")
+    secret_key: str | None = Field(default=None, alias="minio_secret_key")
     secure: bool = Field(default=False, alias="minio_secure")
     bucket: str = Field(default="kubecoderun-files", alias="minio_bucket")
     region: str = Field(default="us-east-1", alias="minio_region")
@@ -57,6 +58,7 @@ class MinIOConfig(BaseSettings):
         otherwise uses access_key/secret_key.
         """
         import os
+
         from minio import Minio
 
         if self.use_iam:
@@ -70,7 +72,7 @@ class MinIOConfig(BaseSettings):
 
                 def get_jwt() -> dict:
                     """Return JWT token as dict with access_token key."""
-                    with open(web_identity_token_file, "r") as f:
+                    with open(web_identity_token_file) as f:
                         token = f.read().strip()
                     return {"access_token": token}
 
@@ -83,8 +85,8 @@ class MinIOConfig(BaseSettings):
                 return Minio(
                     self.endpoint,
                     credentials=WebIdentityProvider(
-                        get_jwt,
-                        sts_endpoint,
+                        jwt_provider_func=get_jwt,
+                        sts_endpoint=sts_endpoint,
                         role_arn=role_arn,
                     ),
                     secure=self.secure,

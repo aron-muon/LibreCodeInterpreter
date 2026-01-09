@@ -24,6 +24,11 @@ on:
         type: boolean
         default: false
         description: 'Whether this is a release build (push latest tag)'
+      version:
+        required: false
+        type: string
+        default: ''
+        description: 'Version string to pass as VERSION build arg (for hatch-vcs)'
 
 jobs:
   build:
@@ -68,6 +73,8 @@ jobs:
           cache-from: type=gha,scope=${{ inputs.image_name }}-${{ steps.vars.outputs.tag }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image_name }}-${{ steps.vars.outputs.tag }}
           provenance: false
+          build-args: |
+            VERSION=${{ inputs.version }}
 
   manifest:
     needs: build
