@@ -1,13 +1,14 @@
 """Unit tests for the session service."""
 
-import pytest
 import asyncio
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
 import json
+from datetime import UTC, datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.services.session import SessionService
+import pytest
+
 from src.models.session import Session, SessionCreate, SessionStatus
+from src.services.session import SessionService
 
 
 @pytest.fixture
@@ -108,7 +109,7 @@ async def test_update_session(session_service, mock_redis):
         "session_id": session_id,
         "status": "idle",
         "created_at": "2023-01-01T00:00:00",
-        "last_activity": datetime.now(timezone.utc).isoformat(),
+        "last_activity": datetime.now(UTC).isoformat(),
         "expires_at": "2023-01-02T00:00:00",
         "files": "{}",
         "metadata": "{}",
@@ -116,9 +117,7 @@ async def test_update_session(session_service, mock_redis):
     }
     mock_redis.hgetall.return_value = updated_session_data
 
-    session = await session_service.update_session(
-        session_id, status=SessionStatus.IDLE
-    )
+    session = await session_service.update_session(session_id, status=SessionStatus.IDLE)
 
     assert session is not None
     assert session.session_id == session_id
@@ -132,9 +131,7 @@ async def test_update_session_not_exists(session_service, mock_redis):
     """Test updating a non-existent session."""
     mock_redis.exists.return_value = False
 
-    session = await session_service.update_session(
-        "non-existent", status=SessionStatus.IDLE
-    )
+    session = await session_service.update_session("non-existent", status=SessionStatus.IDLE)
 
     assert session is None
 
@@ -196,17 +193,17 @@ async def test_cleanup_expired_sessions(session_service, mock_redis):
             return Session(
                 session_id=session_id,
                 status=SessionStatus.ACTIVE,
-                created_at=datetime.now(timezone.utc) - timedelta(days=2),
-                last_activity=datetime.now(timezone.utc) - timedelta(days=2),
-                expires_at=datetime.now(timezone.utc) - timedelta(hours=1),  # Expired
+                created_at=datetime.now(UTC) - timedelta(days=2),
+                last_activity=datetime.now(UTC) - timedelta(days=2),
+                expires_at=datetime.now(UTC) - timedelta(hours=1),  # Expired
             )
         else:
             return Session(
                 session_id=session_id,
                 status=SessionStatus.ACTIVE,
-                created_at=datetime.now(timezone.utc),
-                last_activity=datetime.now(timezone.utc),
-                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),  # Active
+                created_at=datetime.now(UTC),
+                last_activity=datetime.now(UTC),
+                expires_at=datetime.now(UTC) + timedelta(hours=1),  # Active
             )
 
     # The pipeline mock is already set up in the fixture
@@ -354,9 +351,7 @@ async def test_validate_session_access_no_session(session_service, mock_redis):
     """Test session access validation when session doesn't exist."""
     mock_redis.hgetall.return_value = {}
 
-    result = await session_service.validate_session_access(
-        "non-existent", "test-entity"
-    )
+    result = await session_service.validate_session_access("non-existent", "test-entity")
 
     assert result is False
 
@@ -374,18 +369,14 @@ async def test_get_session_files_access_success(session_service, mock_redis):
             Session(
                 session_id=session_id,
                 status=SessionStatus.ACTIVE,
-                created_at=datetime.now(timezone.utc),
-                last_activity=datetime.now(timezone.utc),
-                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+                created_at=datetime.now(UTC),
+                last_activity=datetime.now(UTC),
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
                 metadata={"entity_id": entity_id},
             )
         ]
-        with patch.object(
-            session_service, "list_sessions_by_entity", return_value=mock_sessions
-        ):
-            result = await session_service.get_session_files_access(
-                session_id, entity_id
-            )
+        with patch.object(session_service, "list_sessions_by_entity", return_value=mock_sessions):
+            result = await session_service.get_session_files_access(session_id, entity_id)
 
             assert result is True
 
@@ -395,9 +386,7 @@ async def test_get_session_files_access_invalid_session(session_service, mock_re
     """Test session files access validation with invalid session."""
     # Mock validate_session_access to return False
     with patch.object(session_service, "validate_session_access", return_value=False):
-        result = await session_service.get_session_files_access(
-            "invalid-session", "test-entity"
-        )
+        result = await session_service.get_session_files_access("invalid-session", "test-entity")
 
         assert result is False
 

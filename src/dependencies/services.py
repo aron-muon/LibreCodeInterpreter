@@ -4,19 +4,20 @@
 from functools import lru_cache
 from typing import Annotated
 
-# Third-party imports
-from fastapi import Depends
 import structlog
 
+# Third-party imports
+from fastapi import Depends
+
 # Local application imports
-from ..services import FileService, SessionService, CodeExecutionService
-from ..services.state import StateService
-from ..services.state_archival import StateArchivalService
+from ..services import CodeExecutionService, FileService, SessionService
 from ..services.interfaces import (
+    ExecutionServiceInterface,
     FileServiceInterface,
     SessionServiceInterface,
-    ExecutionServiceInterface,
 )
+from ..services.state import StateService
+from ..services.state_archival import StateArchivalService
 
 logger = structlog.get_logger(__name__)
 
@@ -39,26 +40,26 @@ def get_kubernetes_manager():
     return _kubernetes_manager
 
 
-@lru_cache()
+@lru_cache
 def get_file_service() -> FileServiceInterface:
     """Get file service instance."""
     return FileService()
 
 
-@lru_cache()
+@lru_cache
 def get_state_service() -> StateService:
     """Get state service instance for Python session state persistence."""
     return StateService()
 
 
-@lru_cache()
+@lru_cache
 def get_state_archival_service() -> StateArchivalService:
     """Get state archival service instance for MinIO cold storage."""
     state_service = get_state_service()
     return StateArchivalService(state_service=state_service)
 
 
-@lru_cache()
+@lru_cache
 def get_execution_service() -> ExecutionServiceInterface:
     """Get execution service instance.
 
@@ -79,7 +80,7 @@ def inject_kubernetes_manager_to_execution_service():
         logger.info("Kubernetes manager injected into execution service")
 
 
-@lru_cache()
+@lru_cache
 def get_session_service() -> SessionServiceInterface:
     """Get session service instance with proper dependency injection."""
     try:
@@ -107,10 +108,6 @@ def get_session_service() -> SessionServiceInterface:
 # Type aliases for dependency injection
 FileServiceDep = Annotated[FileServiceInterface, Depends(get_file_service)]
 SessionServiceDep = Annotated[SessionServiceInterface, Depends(get_session_service)]
-ExecutionServiceDep = Annotated[
-    ExecutionServiceInterface, Depends(get_execution_service)
-]
+ExecutionServiceDep = Annotated[ExecutionServiceInterface, Depends(get_execution_service)]
 StateServiceDep = Annotated[StateService, Depends(get_state_service)]
-StateArchivalServiceDep = Annotated[
-    StateArchivalService, Depends(get_state_archival_service)
-]
+StateArchivalServiceDep = Annotated[StateArchivalService, Depends(get_state_archival_service)]

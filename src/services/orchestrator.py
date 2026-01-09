@@ -20,29 +20,31 @@ import base64
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+
 import structlog
 
 from ..config import settings
 from ..config.languages import is_supported_language
-from ..core.events import event_bus, ExecutionCompleted
-from ..models.metrics import DetailedExecutionMetrics
+from ..core.events import ExecutionCompleted, event_bus
 from ..models import (
+    CodeExecution,
     ExecRequest,
     ExecResponse,
-    FileRef,
-    SessionCreate,
     ExecuteCodeRequest,
-    ValidationError,
     ExecutionError,
+    FileRef,
     ResourceNotFoundError,
     ServiceUnavailableError,
+    SessionCreate,
     TimeoutError,
+    ValidationError,
 )
 from ..models.errors import ErrorDetail
+from ..models.metrics import DetailedExecutionMetrics
 from .interfaces import (
-    SessionServiceInterface,
     ExecutionServiceInterface,
     FileServiceInterface,
+    SessionServiceInterface,
 )
 from .state import StateService
 from .state_archival import StateArchivalService
@@ -56,24 +58,22 @@ class ExecutionContext:
 
     request: ExecRequest
     request_id: str
-    session_id: Optional[str] = None
-    mounted_files: Optional[List[Dict[str, Any]]] = None
-    execution: Optional[Any] = None
-    generated_files: Optional[List[FileRef]] = None
+    session_id: str | None = None
+    mounted_files: list[dict[str, Any]] | None = None
+    execution: CodeExecution | None = None
+    generated_files: list[FileRef] | None = None
     stdout: str = ""
     stderr: str = ""
-    container: Optional[Any] = (
-        None  # Container used for execution (avoids session lookup)
-    )
+    container: Any | None = None  # Container used for execution (avoids session lookup)
     # State persistence fields
-    initial_state: Optional[str] = None
-    new_state: Optional[str] = None
-    state_errors: Optional[List[str]] = None
+    initial_state: str | None = None
+    new_state: str | None = None
+    state_errors: list[str] | None = None
     # Metrics tracking fields
-    api_key_hash: Optional[str] = None
+    api_key_hash: str | None = None
     is_env_key: bool = False
     container_source: str = "pool_hit"  # pool_hit, pool_miss, pool_disabled
-    execution_start_time: Optional[datetime] = None
+    execution_start_time: datetime | None = None
 
 
 class ExecutionOrchestrator:
@@ -94,8 +94,8 @@ class ExecutionOrchestrator:
         session_service: SessionServiceInterface,
         file_service: FileServiceInterface,
         execution_service: ExecutionServiceInterface,
-        state_service: Optional[StateService] = None,
-        state_archival_service: Optional[StateArchivalService] = None,
+        state_service: StateService | None = None,
+        state_archival_service: StateArchivalService | None = None,
     ):
         self.session_service = session_service
         self.file_service = file_service
@@ -107,7 +107,7 @@ class ExecutionOrchestrator:
         self,
         request: ExecRequest,
         request_id: str = "",
-        api_key_hash: Optional[str] = None,
+        api_key_hash: str | None = None,
         is_env_key: bool = False,
     ) -> ExecResponse:
         """Execute code and return LibreChat-compatible response.
@@ -245,9 +245,7 @@ class ExecutionOrchestrator:
             for file_ref in request.files:
                 if file_ref.session_id:
                     try:
-                        existing = await self.session_service.get_session(
-                            file_ref.session_id
-                        )
+                        existing = await self.session_service.get_session(file_ref.session_id)
                         if existing and existing.status.value == "active":
                             logger.info(
                                 "Reusing session from file reference",
@@ -264,9 +262,7 @@ class ExecutionOrchestrator:
         # Try to reuse session by entity_id (enables session continuity)
         if request.entity_id:
             try:
-                entity_sessions = await self.session_service.list_sessions_by_entity(
-                    request.entity_id, limit=1
-                )
+                entity_sessions = await self.session_service.list_sessions_by_entity(request.entity_id, limit=1)
                 if entity_sessions:
                     existing = entity_sessions[0]
                     if existing.status.value == "active":
@@ -290,13 +286,11 @@ class ExecutionOrchestrator:
         if request.user_id:
             metadata["user_id"] = request.user_id
 
-        session = await self.session_service.create_session(
-            SessionCreate(metadata=metadata)
-        )
+        session = await self.session_service.create_session(SessionCreate(metadata=metadata))
         logger.info("Created new session", session_id=session.session_id)
         return session.session_id
 
-    async def _mount_files(self, ctx: ExecutionContext) -> List[Dict[str, Any]]:
+    async def _mount_files(self, ctx: ExecutionContext) -> list[dict[str, Any]]:
         """Mount files for code execution."""
         if not ctx.request.files:
             return []
@@ -306,9 +300,7 @@ class ExecutionOrchestrator:
 
         for file_ref in ctx.request.files:
             # Get file info
-            file_info = await self.file_service.get_file_info(
-                file_ref.session_id, file_ref.id
-            )
+            file_info = await self.file_service.get_file_info(file_ref.session_id, file_ref.id)
 
             # Fallback: lookup by name
             if not file_info and file_ref.name:
@@ -319,9 +311,7 @@ class ExecutionOrchestrator:
                         break
 
             if not file_info:
-                logger.warning(
-                    "File not found", file_id=file_ref.id, name=file_ref.name
-                )
+                logger.warning("File not found", file_id=file_ref.id, name=file_ref.name)
                 continue
 
             # Skip duplicates
@@ -382,9 +372,7 @@ class ExecutionOrchestrator:
 
             # Try MinIO fallback (cold storage)
             if self.state_archival_service and settings.state_archive_enabled:
-                ctx.initial_state = await self.state_archival_service.restore_state(
-                    ctx.session_id
-                )
+                ctx.initial_state = await self.state_archival_service.restore_state(ctx.session_id)
                 if ctx.initial_state:
                     logger.debug(
                         "Restored state from MinIO",
@@ -393,9 +381,7 @@ class ExecutionOrchestrator:
                     )
 
         except Exception as e:
-            logger.warning(
-                "Failed to load state", session_id=ctx.session_id[:12], error=str(e)
-            )
+            logger.warning("Failed to load state", session_id=ctx.session_id[:12], error=str(e))
 
     async def _save_state(self, ctx: ExecutionContext) -> None:
         """Save execution state to Redis for Python sessions."""
@@ -423,9 +409,7 @@ class ExecutionOrchestrator:
                     ttl_seconds=settings.state_ttl_seconds,
                 )
             except Exception as e:
-                logger.warning(
-                    "Failed to save state", session_id=ctx.session_id[:12], error=str(e)
-                )
+                logger.warning("Failed to save state", session_id=ctx.session_id[:12], error=str(e))
 
         # Log any state serialization warnings
         if ctx.state_errors:
@@ -466,19 +450,18 @@ class ExecutionOrchestrator:
             "Code execution completed",
             session_id=ctx.session_id,
             status=execution.status.value,
-            pod_name=(
-                ctx.container.name
-                if ctx.container and hasattr(ctx.container, "name")
-                else None
-            ),
+            pod_name=(ctx.container.name if ctx.container and hasattr(ctx.container, "name") else None),
             has_state=ctx.new_state is not None,
         )
 
         return execution
 
-    async def _handle_generated_files(self, ctx: ExecutionContext) -> List[FileRef]:
+    async def _handle_generated_files(self, ctx: ExecutionContext) -> list[FileRef]:
         """Handle files generated during execution."""
         generated = []
+
+        if not ctx.execution:
+            return generated
 
         for output in ctx.execution.outputs:
             if output.type.value != "file":
@@ -492,14 +475,10 @@ class ExecutionOrchestrator:
 
             try:
                 # Get file content from container (use ctx.container directly, no session lookup)
-                file_content = await self._get_file_from_container(
-                    ctx.container, file_path
-                )
+                file_content = await self._get_file_from_container(ctx.container, file_path)
 
                 # Store the file
-                file_id = await self.file_service.store_execution_output_file(
-                    ctx.session_id, filename, file_content
-                )
+                file_id = await self.file_service.store_execution_output_file(ctx.session_id, filename, file_content)
 
                 generated.append(FileRef(id=file_id, name=filename))
                 logger.info(
@@ -510,9 +489,7 @@ class ExecutionOrchestrator:
                 )
 
             except Exception as e:
-                logger.error(
-                    "Failed to store generated file", filename=filename, error=str(e)
-                )
+                logger.error("Failed to store generated file", filename=filename, error=str(e))
 
         return generated
 
@@ -524,7 +501,7 @@ class ExecutionOrchestrator:
             file_path: Path to file inside pod (e.g., /mnt/data/output.png)
         """
         if not container:
-            return f"# Pod not found for file: {file_path}\n".encode("utf-8")
+            return f"# Pod not found for file: {file_path}\n".encode()
 
         # Extract filename from path
         filename = file_path.split("/")[-1] if "/" in file_path else file_path
@@ -535,12 +512,15 @@ class ExecutionOrchestrator:
         if content:
             return content
         else:
-            return f"# Failed to retrieve file: {file_path}\n".encode("utf-8")
+            return f"# Failed to retrieve file: {file_path}\n".encode()
 
     def _extract_outputs(self, ctx: ExecutionContext) -> None:
         """Extract stdout and stderr from execution outputs."""
         stdout_parts = []
         stderr_parts = []
+
+        if not ctx.execution:
+            return
 
         for output in ctx.execution.outputs:
             if output.type.value == "stdout":
@@ -552,11 +532,7 @@ class ExecutionOrchestrator:
         ctx.stderr = "\n".join(stderr_parts)
 
         # Include error message in stderr if execution failed
-        if (
-            ctx.execution.status.value == "failed"
-            and ctx.execution.error_message
-            and not ctx.stderr
-        ):
+        if ctx.execution.status.value == "failed" and ctx.execution.error_message and not ctx.stderr:
             ctx.stderr = ctx.execution.error_message
 
         # Ensure stdout ends with newline (LibreChat compatibility)
@@ -601,9 +577,7 @@ class ExecutionOrchestrator:
         if ctx.container:
             try:
                 kubernetes_manager = self.execution_service.kubernetes_manager
-                pod_name = (
-                    ctx.container.name if hasattr(ctx.container, "name") else "unknown"
-                )
+                pod_name = ctx.container.name if hasattr(ctx.container, "name") else "unknown"
                 logger.debug("Scheduling pod destruction", pod_name=pod_name)
 
                 # Fire-and-forget: destroy pod in background
@@ -638,9 +612,7 @@ class ExecutionOrchestrator:
 
             await event_bus.publish(
                 ExecutionCompleted(
-                    execution_id=(
-                        ctx.execution.execution_id if ctx.execution else ctx.request_id
-                    ),
+                    execution_id=(ctx.execution.execution_id if ctx.execution else ctx.request_id),
                     session_id=ctx.session_id,
                     success=success,
                     execution_time_ms=execution_time_ms,
@@ -659,7 +631,7 @@ class ExecutionOrchestrator:
             )
 
     async def _record_detailed_metrics(
-        self, ctx: ExecutionContext, execution_time_ms: Optional[float], status: str
+        self, ctx: ExecutionContext, execution_time_ms: float | None, status: str
     ) -> None:
         """Record detailed execution metrics for analytics.
 
@@ -689,9 +661,7 @@ class ExecutionOrchestrator:
             state_size = len(ctx.new_state.encode()) if ctx.new_state else None
 
             metrics = DetailedExecutionMetrics(
-                execution_id=(
-                    ctx.execution.execution_id if ctx.execution else ctx.request_id
-                ),
+                execution_id=(ctx.execution.execution_id if ctx.execution else ctx.request_id),
                 session_id=ctx.session_id or "",
                 api_key_hash=ctx.api_key_hash[:16] if ctx.api_key_hash else "unknown",
                 user_id=ctx.request.user_id,

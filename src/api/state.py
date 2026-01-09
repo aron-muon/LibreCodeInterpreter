@@ -9,10 +9,10 @@ Wire format: Raw lz4-compressed binary (not base64).
 from typing import Optional
 
 import structlog
-from fastapi import APIRouter, HTTPException, Header, Request, Response
+from fastapi import APIRouter, Header, HTTPException, Request, Response
 
 from ..config import settings
-from ..dependencies.services import StateServiceDep, StateArchivalServiceDep
+from ..dependencies.services import StateArchivalServiceDep, StateServiceDep
 from ..models.state import StateInfo, StateUploadResponse
 
 logger = structlog.get_logger(__name__)
@@ -27,7 +27,7 @@ async def download_state(
     session_id: str,
     state_service: StateServiceDep,
     state_archival_service: StateArchivalServiceDep,
-    if_none_match: Optional[str] = Header(None, alias="If-None-Match"),
+    if_none_match: str | None = Header(None, alias="If-None-Match"),
 ):
     """Download session state as raw lz4 binary.
 
@@ -140,9 +140,7 @@ async def upload_state(
         )
 
     # Save state with upload marker
-    success = await state_service.save_state_raw(
-        session_id, raw_bytes, from_upload=True
-    )
+    success = await state_service.save_state_raw(session_id, raw_bytes, from_upload=True)
 
     if not success:
         raise HTTPException(

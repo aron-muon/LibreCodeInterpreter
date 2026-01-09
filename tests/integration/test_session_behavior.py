@@ -5,16 +5,17 @@ This test suite documents and verifies session lifecycle behavior
 to ensure 100% compatibility after architectural refactoring.
 """
 
+import io
+from datetime import UTC, datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime, timezone, timedelta
-import io
 
 from src.main import app
-from src.models import CodeExecution, ExecutionStatus, ExecutionOutput, OutputType
-from src.models.session import Session, SessionStatus
+from src.models import CodeExecution, ExecutionOutput, ExecutionStatus, OutputType
 from src.models.files import FileInfo
+from src.models.session import Session, SessionStatus
 
 
 @pytest.fixture
@@ -29,9 +30,7 @@ def auth_headers():
     return {"x-api-key": "test-api-key-for-testing-12345"}
 
 
-def create_session(
-    session_id: str, entity_id: str = None, metadata: dict = None
-) -> Session:
+def create_session(session_id: str, entity_id: str = None, metadata: dict = None) -> Session:
     """Helper to create a session with specific properties."""
     meta = metadata or {}
     if entity_id:
@@ -40,9 +39,9 @@ def create_session(
     return Session(
         session_id=session_id,
         status=SessionStatus.ACTIVE,
-        created_at=datetime.now(timezone.utc),
-        last_activity=datetime.now(timezone.utc),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+        created_at=datetime.now(UTC),
+        last_activity=datetime.now(UTC),
+        expires_at=datetime.now(UTC) + timedelta(hours=24),
         metadata=meta,
     )
 
@@ -61,7 +60,7 @@ def create_execution(session_id: str, stdout: str = "output") -> CodeExecution:
             ExecutionOutput(
                 type=OutputType.STDOUT,
                 content=stdout,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
         ],
     )
@@ -98,9 +97,9 @@ class TestSessionCreation:
         mock_file_service.list_files.return_value = []
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
         app.dependency_overrides[get_session_service] = lambda: mock_session_service
@@ -150,9 +149,9 @@ class TestSessionCreation:
         mock_file_service.list_files.return_value = []
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
         app.dependency_overrides[get_session_service] = lambda: mock_session_service
@@ -169,10 +168,7 @@ class TestSessionCreation:
             assert response.status_code == 200
 
             # Verify session was created (entity_id is used for lookup, not stored in metadata)
-            assert (
-                mock_session_service.create_session.called
-                or mock_session_service.get_session.called
-            )
+            assert mock_session_service.create_session.called or mock_session_service.get_session.called
             # Response should contain a session_id
             assert "session_id" in response.json()
         finally:
@@ -202,9 +198,9 @@ class TestSessionCreation:
         mock_file_service.list_files.return_value = []
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
         app.dependency_overrides[get_session_service] = lambda: mock_session_service
@@ -256,9 +252,9 @@ class TestSessionReuse:
         mock_file_service.list_files.return_value = []
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
         app.dependency_overrides[get_session_service] = lambda: mock_session_service
@@ -310,9 +306,9 @@ class TestSessionReuse:
         mock_file_service.list_files.return_value = []
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
         app.dependency_overrides[get_session_service] = lambda: mock_session_service
@@ -349,9 +345,7 @@ class TestSessionReuse:
 class TestFilePersistence:
     """Test file persistence across executions."""
 
-    @pytest.mark.skip(
-        reason="Requires full integration testing with real services - complex multi-step file flow"
-    )
+    @pytest.mark.skip(reason="Requires full integration testing with real services - complex multi-step file flow")
     def test_uploaded_file_available_in_execution(self, client, auth_headers):
         """Test that uploaded files are available during execution."""
         session_id = "file-test-session"
@@ -397,9 +391,9 @@ class TestFilePersistence:
         mock_file_service.get_file_content.return_value = b"test content"
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
         app.dependency_overrides[get_session_service] = lambda: mock_session_service
@@ -411,9 +405,7 @@ class TestFilePersistence:
             files = {"files": ("data.txt", io.BytesIO(b"test content"), "text/plain")}
             data = {"entity_id": "file-test-entity"}
 
-            upload_response = client.post(
-                "/files/upload", files=files, data=data, headers=auth_headers
-            )
+            upload_response = client.post("/files/upload", files=files, data=data, headers=auth_headers)
             assert upload_response.status_code == 200
             uploaded_file = upload_response.json()["files"][0]
 
@@ -444,9 +436,7 @@ class TestFilePersistence:
         finally:
             app.dependency_overrides.clear()
 
-    @pytest.mark.skip(
-        reason="Requires full integration testing with real services - complex multi-step file flow"
-    )
+    @pytest.mark.skip(reason="Requires full integration testing with real services - complex multi-step file flow")
     def test_generated_file_downloadable(self, client, auth_headers):
         """Test that files generated during execution can be downloaded."""
         session_id = "gen-file-session"
@@ -468,7 +458,7 @@ class TestFilePersistence:
                     content="/workspace/output.txt",
                     mime_type="text/plain",
                     size=50,
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                 )
             ],
         )
@@ -501,9 +491,9 @@ class TestFilePersistence:
         mock_file_service.download_file.return_value = "https://minio.test/download"
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
         app.dependency_overrides[get_session_service] = lambda: mock_session_service
@@ -580,9 +570,7 @@ class TestSessionIsolation:
 
         try:
             # Try to access file from different session
-            response = client.get(
-                "/files/download/other-session/some-file-id", headers=auth_headers
-            )
+            response = client.get("/files/download/other-session/some-file-id", headers=auth_headers)
 
             # Should not find the file
             assert response.status_code == 404
@@ -623,9 +611,9 @@ class TestSessionIdStability:
         mock_file_service.list_files.return_value = []
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
         app.dependency_overrides[get_session_service] = lambda: mock_session_service
@@ -688,16 +676,12 @@ class TestSessionIdStability:
         try:
             # Upload a file
             files = {"files": ("stable.txt", io.BytesIO(b"content"), "text/plain")}
-            upload_response = client.post(
-                "/files/upload", files=files, headers=auth_headers
-            )
+            upload_response = client.post("/files/upload", files=files, headers=auth_headers)
 
             uploaded_id = upload_response.json()["files"][0]["id"]
 
             # List files - should show same ID
-            list_response = client.get(
-                "/files/files/temp-session", headers=auth_headers
-            )
+            list_response = client.get("/files/files/temp-session", headers=auth_headers)
             listed_id = list_response.json()[0]["id"]
 
             assert uploaded_id == listed_id

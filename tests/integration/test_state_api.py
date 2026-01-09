@@ -1,14 +1,15 @@
 """Integration tests for the /state endpoints."""
 
 import base64
-import pytest
-from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+from fastapi.testclient import TestClient
+
+from src.dependencies.services import get_state_archival_service, get_state_service
 from src.main import app
 from src.services.state import StateService
 from src.services.state_archival import StateArchivalService
-from src.dependencies.services import get_state_service, get_state_archival_service
 
 
 @pytest.fixture
@@ -42,9 +43,7 @@ def client(mock_state_service, mock_state_archival_service):
     """Create test client with mocked services."""
     # Override dependencies
     app.dependency_overrides[get_state_service] = lambda: mock_state_service
-    app.dependency_overrides[get_state_archival_service] = (
-        lambda: mock_state_archival_service
-    )
+    app.dependency_overrides[get_state_archival_service] = lambda: mock_state_archival_service
 
     client = TestClient(app)
     yield client
@@ -62,9 +61,7 @@ def auth_headers():
 class TestDownloadState:
     """Tests for GET /state/{session_id}."""
 
-    def test_download_nonexistent_state_returns_404(
-        self, client, auth_headers, mock_state_service
-    ):
+    def test_download_nonexistent_state_returns_404(self, client, auth_headers, mock_state_service):
         """Test that downloading nonexistent state returns 404."""
         # mock_state_service already returns None by default
         response = client.get("/state/nonexistent-session", headers=auth_headers)
@@ -74,9 +71,7 @@ class TestDownloadState:
         # Error handler stringifies the detail dict
         assert "state_not_found" in data["error"]
 
-    def test_download_state_returns_etag(
-        self, client, auth_headers, mock_state_service
-    ):
+    def test_download_state_returns_etag(self, client, auth_headers, mock_state_service):
         """Test that downloading state returns ETag header."""
         # Setup mock with state
         raw_bytes = b"\x02test state data"
@@ -107,9 +102,7 @@ class TestDownloadState:
 class TestUploadState:
     """Tests for POST /state/{session_id}."""
 
-    def test_upload_valid_state_returns_201(
-        self, client, auth_headers, mock_state_service
-    ):
+    def test_upload_valid_state_returns_201(self, client, auth_headers, mock_state_service):
         """Test that uploading valid state returns 201."""
         # Create valid state blob (version 2 + some data)
         raw_bytes = b"\x02fake lz4 compressed data here"
@@ -125,9 +118,7 @@ class TestUploadState:
         assert data["message"] == "state_uploaded"
         assert data["size"] == len(raw_bytes)
 
-    def test_upload_invalid_version_returns_400(
-        self, client, auth_headers, mock_state_service
-    ):
+    def test_upload_invalid_version_returns_400(self, client, auth_headers, mock_state_service):
         """Test that invalid version byte returns 400."""
         # Version 99 is invalid
         raw_bytes = b"\x63invalid version data"
@@ -143,9 +134,7 @@ class TestUploadState:
         # Error handler stringifies the detail dict
         assert "invalid_state" in data["error"]
 
-    def test_upload_too_short_returns_400(
-        self, client, auth_headers, mock_state_service
-    ):
+    def test_upload_too_short_returns_400(self, client, auth_headers, mock_state_service):
         """Test that state < 2 bytes returns 400."""
         raw_bytes = b"\x02"  # Only 1 byte
 
@@ -161,9 +150,7 @@ class TestUploadState:
 class TestGetStateInfo:
     """Tests for GET /state/{session_id}/info."""
 
-    def test_info_nonexistent_returns_exists_false(
-        self, client, auth_headers, mock_state_service
-    ):
+    def test_info_nonexistent_returns_exists_false(self, client, auth_headers, mock_state_service):
         """Test that info for nonexistent state returns exists=false."""
         response = client.get("/state/nonexistent/info", headers=auth_headers)
 
@@ -171,9 +158,7 @@ class TestGetStateInfo:
         data = response.json()
         assert data["exists"] is False
 
-    def test_info_existing_state_returns_metadata(
-        self, client, auth_headers, mock_state_service
-    ):
+    def test_info_existing_state_returns_metadata(self, client, auth_headers, mock_state_service):
         """Test that info for existing state returns metadata."""
         mock_state_service.get_full_state_info.return_value = {
             "size_bytes": 1024,
@@ -213,9 +198,7 @@ class TestDeleteState:
 
         assert response.status_code == 204
 
-    def test_delete_nonexistent_still_returns_204(
-        self, client, auth_headers, mock_state_service
-    ):
+    def test_delete_nonexistent_still_returns_204(self, client, auth_headers, mock_state_service):
         """Test that deleting nonexistent state still returns 204."""
         response = client.delete("/state/nonexistent", headers=auth_headers)
 

@@ -5,9 +5,9 @@ import asyncio
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from enum import Enum
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
 # Third-party imports
 import redis.asyncio as redis
@@ -15,7 +15,6 @@ import structlog
 
 # Local application imports
 from ..config import settings
-
 
 logger = structlog.get_logger(__name__)
 
@@ -36,7 +35,7 @@ class MetricPoint:
     name: str
     value: float
     timestamp: datetime
-    labels: Dict[str, str] = field(default_factory=dict)
+    labels: dict[str, str] = field(default_factory=dict)
     metric_type: MetricType = MetricType.GAUGE
 
 
@@ -49,12 +48,12 @@ class ExecutionMetrics:
     language: str
     status: str
     execution_time_ms: float
-    memory_peak_mb: Optional[float] = None
-    cpu_time_ms: Optional[float] = None
-    exit_code: Optional[int] = None
+    memory_peak_mb: float | None = None
+    cpu_time_ms: float | None = None
+    exit_code: int | None = None
     file_count: int = 0
     output_size_bytes: int = 0
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -67,8 +66,8 @@ class APIMetrics:
     response_time_ms: float
     request_size_bytes: int = 0
     response_size_bytes: int = 0
-    user_agent: Optional[str] = None
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    user_agent: str | None = None
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class MetricsCollector:
@@ -76,12 +75,12 @@ class MetricsCollector:
 
     def __init__(self):
         """Initialize metrics collector."""
-        self._redis_client: Optional[redis.Redis] = None
+        self._redis_client: redis.Redis | None = None
         self._metrics_buffer: deque = deque(maxlen=10000)  # Buffer for recent metrics
-        self._counters: Dict[str, float] = defaultdict(float)
-        self._gauges: Dict[str, float] = {}
-        self._histograms: Dict[str, List[float]] = defaultdict(list)
-        self._timers: Dict[str, List[float]] = defaultdict(list)
+        self._counters: dict[str, float] = defaultdict(float)
+        self._gauges: dict[str, float] = {}
+        self._histograms: dict[str, list[float]] = defaultdict(list)
+        self._timers: dict[str, list[float]] = defaultdict(list)
 
         # Aggregated statistics
         self._execution_stats = {
@@ -106,7 +105,7 @@ class MetricsCollector:
         }
 
         # Background task for metrics persistence
-        self._persistence_task: Optional[asyncio.Task] = None
+        self._persistence_task: asyncio.Task | None = None
         self._persistence_interval = 60  # Persist metrics every 60 seconds
 
     async def start(self) -> None:
@@ -128,10 +127,8 @@ class MetricsCollector:
 
             logger.info("Metrics collector started with Redis persistence")
 
-        except asyncio.TimeoutError:
-            logger.warning(
-                "Redis connection timed out - metrics collector will run without persistence"
-            )
+        except TimeoutError:
+            logger.warning("Redis connection timed out - metrics collector will run without persistence")
             self._redis_client = None
         except Exception as e:
             logger.warning(
@@ -142,9 +139,7 @@ class MetricsCollector:
 
         # Always start the metrics collector, even without Redis
         logger.info(
-            "Metrics collector started (in-memory only)"
-            if not self._redis_client
-            else "Metrics collector started"
+            "Metrics collector started (in-memory only)" if not self._redis_client else "Metrics collector started"
         )
 
     async def stop(self) -> None:
@@ -155,31 +150,25 @@ class MetricsCollector:
                 self._persistence_task.cancel()
                 try:
                     await asyncio.wait_for(self._persistence_task, timeout=2.0)
-                except (asyncio.CancelledError, asyncio.TimeoutError):
-                    logger.info(
-                        "Persistence task cancelled or timed out during shutdown"
-                    )
+                except (TimeoutError, asyncio.CancelledError):
+                    logger.info("Persistence task cancelled or timed out during shutdown")
 
             # Final metrics persistence with timeout to avoid hanging
             try:
                 await asyncio.wait_for(self._persist_metrics_to_redis(), timeout=3.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("Metrics persistence timed out during shutdown")
             except Exception as e:
-                logger.warning(
-                    "Failed to persist final metrics during shutdown", error=str(e)
-                )
+                logger.warning("Failed to persist final metrics during shutdown", error=str(e))
 
             # Close Redis connection
             if self._redis_client:
                 try:
                     await asyncio.wait_for(self._redis_client.close(), timeout=1.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning("Redis connection close timed out during shutdown")
                 except Exception as e:
-                    logger.warning(
-                        f"Error closing Redis connection during shutdown: {e}"
-                    )
+                    logger.warning(f"Error closing Redis connection during shutdown: {e}")
 
             logger.info("Metrics collector stopped")
 
@@ -207,9 +196,7 @@ class MetricsCollector:
             elif metrics.status == "timeout":
                 self._execution_stats["timeout_executions"] += 1
 
-            self._execution_stats[
-                "total_execution_time_ms"
-            ] += metrics.execution_time_ms
+            self._execution_stats["total_execution_time_ms"] += metrics.execution_time_ms
             self._execution_stats["language_counts"][metrics.language] += 1
 
             if metrics.memory_peak_mb:
@@ -226,30 +213,22 @@ class MetricsCollector:
 
             # Keep histogram size manageable
             if len(self._histograms["execution_time_ms"]) > 1000:
-                self._histograms["execution_time_ms"] = self._histograms[
-                    "execution_time_ms"
-                ][-500:]
+                self._histograms["execution_time_ms"] = self._histograms["execution_time_ms"][-500:]
             if len(self._histograms["memory_usage_mb"]) > 1000:
-                self._histograms["memory_usage_mb"] = self._histograms[
-                    "memory_usage_mb"
-                ][-500:]
+                self._histograms["memory_usage_mb"] = self._histograms["memory_usage_mb"][-500:]
 
             # Update gauges
             self._gauges["avg_execution_time_ms"] = (
-                self._execution_stats["total_execution_time_ms"]
-                / self._execution_stats["total_executions"]
+                self._execution_stats["total_execution_time_ms"] / self._execution_stats["total_executions"]
             )
 
             if self._execution_stats["total_memory_usage_mb"] > 0:
                 successful_with_memory = sum(
-                    1
-                    for m in self._metrics_buffer
-                    if isinstance(m, ExecutionMetrics) and m.memory_peak_mb
+                    1 for m in self._metrics_buffer if isinstance(m, ExecutionMetrics) and m.memory_peak_mb
                 )
                 if successful_with_memory > 0:
                     self._gauges["avg_memory_usage_mb"] = (
-                        self._execution_stats["total_memory_usage_mb"]
-                        / successful_with_memory
+                        self._execution_stats["total_memory_usage_mb"] / successful_with_memory
                     )
 
         except Exception as e:
@@ -288,25 +267,21 @@ class MetricsCollector:
 
             # Keep histogram size manageable
             if len(self._histograms["api_response_time_ms"]) > 1000:
-                self._histograms["api_response_time_ms"] = self._histograms[
-                    "api_response_time_ms"
-                ][-500:]
+                self._histograms["api_response_time_ms"] = self._histograms["api_response_time_ms"][-500:]
 
             # Update gauges
             self._gauges["avg_api_response_time_ms"] = (
-                self._api_stats["total_response_time_ms"]
-                / self._api_stats["total_requests"]
+                self._api_stats["total_response_time_ms"] / self._api_stats["total_requests"]
             )
 
             self._gauges["api_success_rate"] = (
-                self._api_stats["successful_requests"]
-                / self._api_stats["total_requests"]
+                self._api_stats["successful_requests"] / self._api_stats["total_requests"]
             ) * 100
 
         except Exception as e:
             logger.error("Failed to record API metrics", error=str(e))
 
-    def get_execution_statistics(self) -> Dict[str, Any]:
+    def get_execution_statistics(self) -> dict[str, Any]:
         """Get execution statistics summary."""
         stats = dict(self._execution_stats)
 
@@ -316,21 +291,12 @@ class MetricsCollector:
 
         # Add calculated metrics
         if stats["total_executions"] > 0:
-            stats["success_rate"] = (
-                stats["successful_executions"] / stats["total_executions"]
-            ) * 100
-            stats["failure_rate"] = (
-                stats["failed_executions"] / stats["total_executions"]
-            ) * 100
-            stats["timeout_rate"] = (
-                stats["timeout_executions"] / stats["total_executions"]
-            ) * 100
+            stats["success_rate"] = (stats["successful_executions"] / stats["total_executions"]) * 100
+            stats["failure_rate"] = (stats["failed_executions"] / stats["total_executions"]) * 100
+            stats["timeout_rate"] = (stats["timeout_executions"] / stats["total_executions"]) * 100
 
         # Add histogram statistics
-        if (
-            "execution_time_ms" in self._histograms
-            and self._histograms["execution_time_ms"]
-        ):
+        if "execution_time_ms" in self._histograms and self._histograms["execution_time_ms"]:
             times = self._histograms["execution_time_ms"]
             stats["execution_time_percentiles"] = {
                 "p50": self._percentile(times, 50),
@@ -339,10 +305,7 @@ class MetricsCollector:
                 "p99": self._percentile(times, 99),
             }
 
-        if (
-            "memory_usage_mb" in self._histograms
-            and self._histograms["memory_usage_mb"]
-        ):
+        if "memory_usage_mb" in self._histograms and self._histograms["memory_usage_mb"]:
             memory = self._histograms["memory_usage_mb"]
             stats["memory_usage_percentiles"] = {
                 "p50": self._percentile(memory, 50),
@@ -353,7 +316,7 @@ class MetricsCollector:
 
         return stats
 
-    def get_api_statistics(self) -> Dict[str, Any]:
+    def get_api_statistics(self) -> dict[str, Any]:
         """Get API statistics summary."""
         stats = dict(self._api_stats)
 
@@ -363,10 +326,7 @@ class MetricsCollector:
         stats["hourly_requests"] = dict(stats["hourly_requests"])
 
         # Add histogram statistics
-        if (
-            "api_response_time_ms" in self._histograms
-            and self._histograms["api_response_time_ms"]
-        ):
+        if "api_response_time_ms" in self._histograms and self._histograms["api_response_time_ms"]:
             times = self._histograms["api_response_time_ms"]
             stats["response_time_percentiles"] = {
                 "p50": self._percentile(times, 50),
@@ -377,7 +337,7 @@ class MetricsCollector:
 
         return stats
 
-    def get_system_metrics(self) -> Dict[str, Any]:
+    def get_system_metrics(self) -> dict[str, Any]:
         """Get current system metrics."""
         return {
             "counters": dict(self._counters),
@@ -387,7 +347,7 @@ class MetricsCollector:
             "last_persistence": getattr(self, "_last_persistence", None),
         }
 
-    def _percentile(self, data: List[float], percentile: float) -> float:
+    def _percentile(self, data: list[float], percentile: float) -> float:
         """Calculate percentile of a list of values."""
         if not data:
             return 0.0
@@ -427,23 +387,25 @@ class MetricsCollector:
                 "execution_stats": self.get_execution_statistics(),
                 "api_stats": self.get_api_statistics(),
                 "system_metrics": self.get_system_metrics(),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
             # Store in Redis with TTL
             await self._redis_client.setex(
-                "metrics:current", 86400, str(metrics_data)  # 24 hours TTL
+                "metrics:current",
+                86400,
+                str(metrics_data),  # 24 hours TTL
             )
 
             # Store historical data (keep last 24 hours)
-            hour_key = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H")
+            hour_key = datetime.now(UTC).strftime("%Y-%m-%d-%H")
             await self._redis_client.setex(
                 f"metrics:hourly:{hour_key}",
                 86400 * 7,  # 7 days TTL for hourly data
                 str(metrics_data),
             )
 
-            self._last_persistence = datetime.now(timezone.utc)
+            self._last_persistence = datetime.now(UTC)
 
         except Exception as e:
             logger.error("Failed to persist metrics to Redis", error=str(e))

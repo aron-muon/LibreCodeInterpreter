@@ -14,10 +14,10 @@ import structlog
 from kubernetes.client import ApiException
 
 from .client import (
-    get_core_api,
-    get_batch_api,
-    get_current_namespace,
     create_job_manifest,
+    get_batch_api,
+    get_core_api,
+    get_current_namespace,
 )
 from .models import (
     ExecutionResult,
@@ -38,7 +38,7 @@ class JobExecutor:
 
     def __init__(
         self,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
         ttl_seconds_after_finished: int = 60,
         active_deadline_seconds: int = 300,
         sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest",
@@ -55,7 +55,7 @@ class JobExecutor:
         self.ttl_seconds_after_finished = ttl_seconds_after_finished
         self.active_deadline_seconds = active_deadline_seconds
         self.sidecar_image = sidecar_image
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
 
     async def _get_http_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client for sidecar communication."""
@@ -196,8 +196,7 @@ class JobExecutor:
                         # Check container readiness
                         if pod.status.container_statuses:
                             sidecar_ready = any(
-                                cs.name == "sidecar" and cs.ready
-                                for cs in pod.status.container_statuses
+                                cs.name == "sidecar" and cs.ready for cs in pod.status.container_statuses
                             )
                             if sidecar_ready:
                                 job.status = "running"
@@ -206,9 +205,7 @@ class JobExecutor:
                                     job_name=job.name,
                                     pod_name=job.pod_name,
                                     pod_ip=job.pod_ip,
-                                    elapsed_seconds=round(
-                                        asyncio.get_event_loop().time() - start_time, 2
-                                    ),
+                                    elapsed_seconds=round(asyncio.get_event_loop().time() - start_time, 2),
                                 )
                                 return True
 
@@ -242,8 +239,8 @@ class JobExecutor:
         job: JobHandle,
         code: str,
         timeout: int = 30,
-        files: Optional[List[FileData]] = None,
-        initial_state: Optional[str] = None,
+        files: list[FileData] | None = None,
+        initial_state: str | None = None,
         capture_state: bool = False,
     ) -> ExecutionResult:
         """Execute code in the job's pod.
@@ -349,7 +346,7 @@ class JobExecutor:
         self,
         client: httpx.AsyncClient,
         sidecar_url: str,
-        files: List[FileData],
+        files: list[FileData],
     ):
         """Upload files to the pod."""
         for file_data in files:
@@ -407,8 +404,8 @@ class JobExecutor:
         session_id: str,
         code: str,
         timeout: int = 30,
-        files: Optional[List[FileData]] = None,
-        initial_state: Optional[str] = None,
+        files: list[FileData] | None = None,
+        initial_state: str | None = None,
         capture_state: bool = False,
     ) -> ExecutionResult:
         """Execute code by creating a job, waiting for ready, executing, and cleaning up.

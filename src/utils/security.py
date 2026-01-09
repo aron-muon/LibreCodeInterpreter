@@ -1,10 +1,11 @@
 """Security utilities for the Code Interpreter API."""
 
-import re
 import hashlib
+import re
 import secrets
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
+
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -96,9 +97,7 @@ class SecurityValidator:
         # Check file extension
         file_ext = cls._get_file_extension(filename)
         if file_ext not in cls.ALLOWED_FILE_EXTENSIONS:
-            logger.warning(
-                "Disallowed file extension", filename=filename, extension=file_ext
-            )
+            logger.warning("Disallowed file extension", filename=filename, extension=file_ext)
             return False
 
         # Check for suspicious characters
@@ -109,7 +108,7 @@ class SecurityValidator:
         return True
 
     @classmethod
-    def validate_code_content(cls, code: str, language: str) -> Dict[str, Any]:
+    def validate_code_content(cls, code: str, language: str) -> dict[str, Any]:
         """
         Validate code content for potentially dangerous operations.
         Returns validation result with warnings.
@@ -123,9 +122,7 @@ class SecurityValidator:
         if language in ["py", "python"]:
             for pattern in cls.DANGEROUS_PATTERNS:
                 if re.search(pattern, code, re.IGNORECASE):
-                    warnings.append(
-                        f"Potentially dangerous pattern detected: {pattern}"
-                    )
+                    warnings.append(f"Potentially dangerous pattern detected: {pattern}")
 
         # Check code length
         if len(code) > 100000:  # 100KB limit
@@ -140,7 +137,7 @@ class SecurityValidator:
         return {"valid": True, "warnings": warnings}  # We warn but don't block
 
     @classmethod
-    def sanitize_session_id(cls, session_id: str) -> Optional[str]:
+    def sanitize_session_id(cls, session_id: str) -> str | None:
         """Sanitize and validate session ID."""
         if not session_id:
             return None
@@ -155,7 +152,7 @@ class SecurityValidator:
         return sanitized
 
     @classmethod
-    def sanitize_file_id(cls, file_id: str) -> Optional[str]:
+    def sanitize_file_id(cls, file_id: str) -> str | None:
         """Sanitize and validate file ID."""
         return cls.sanitize_session_id(file_id)  # Same validation rules
 
@@ -184,15 +181,13 @@ class RateLimiter:
     """Simple in-memory rate limiter for additional protection."""
 
     def __init__(self):
-        self._requests: Dict[str, List[datetime]] = {}
+        self._requests: dict[str, list[datetime]] = {}
         self._cleanup_interval = timedelta(minutes=5)
-        self._last_cleanup = datetime.utcnow()
+        self._last_cleanup = datetime.now(UTC)
 
-    def is_allowed(
-        self, identifier: str, max_requests: int = 100, window_minutes: int = 60
-    ) -> bool:
+    def is_allowed(self, identifier: str, max_requests: int = 100, window_minutes: int = 60) -> bool:
         """Check if request is allowed under rate limit."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Periodic cleanup
         if now - self._last_cleanup > self._cleanup_interval:
@@ -225,7 +220,7 @@ class RateLimiter:
 
     def _cleanup_old_requests(self):
         """Clean up old request records to prevent memory leaks."""
-        cutoff = datetime.utcnow() - timedelta(hours=2)
+        cutoff = datetime.now(UTC) - timedelta(hours=2)
 
         for identifier in list(self._requests.keys()):
             request_times = self._requests[identifier]
@@ -249,14 +244,12 @@ class SecurityAudit:
     """Security audit logging and monitoring."""
 
     @staticmethod
-    def log_security_event(
-        event_type: str, details: Dict[str, Any], severity: str = "info"
-    ):
+    def log_security_event(event_type: str, details: dict[str, Any], severity: str = "info"):
         """Log security-related events."""
         log_data = {
             "event_type": event_type,
             "severity": severity,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             **details,
         }
 
@@ -268,9 +261,7 @@ class SecurityAudit:
             logger.info("Security event", **log_data)
 
     @staticmethod
-    def log_authentication_event(
-        success: bool, api_key_prefix: str, client_ip: str, endpoint: str
-    ):
+    def log_authentication_event(success: bool, api_key_prefix: str, client_ip: str, endpoint: str):
         """Log authentication events."""
         SecurityAudit.log_security_event(
             "authentication",
@@ -284,9 +275,7 @@ class SecurityAudit:
         )
 
     @staticmethod
-    def log_file_operation(
-        operation: str, session_id: str, file_id: str, filename: str, success: bool
-    ):
+    def log_file_operation(operation: str, session_id: str, file_id: str, filename: str, success: bool):
         """Log file operations."""
         SecurityAudit.log_security_event(
             "file_operation",
@@ -305,7 +294,7 @@ class SecurityAudit:
         language: str,
         code_hash: str,
         success: bool,
-        warnings: List[str],
+        warnings: list[str],
     ):
         """Log code execution events."""
         SecurityAudit.log_security_event(

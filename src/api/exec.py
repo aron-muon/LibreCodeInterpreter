@@ -7,15 +7,15 @@ the actual execution workflow logic.
 import structlog
 from fastapi import APIRouter, Request
 
+from ..dependencies.services import (
+    ExecutionServiceDep,
+    FileServiceDep,
+    SessionServiceDep,
+    StateArchivalServiceDep,
+    StateServiceDep,
+)
 from ..models import ExecRequest, ExecResponse
 from ..services.orchestrator import ExecutionOrchestrator
-from ..dependencies.services import (
-    SessionServiceDep,
-    FileServiceDep,
-    ExecutionServiceDep,
-    StateServiceDep,
-    StateArchivalServiceDep,
-)
 from ..utils.id_generator import generate_request_id
 
 logger = structlog.get_logger(__name__)
@@ -80,9 +80,7 @@ async def execute_code(
     )
 
     # Execute via orchestrator (handles validation, session, files, execution, cleanup)
-    response = await orchestrator.execute(
-        request, request_id, api_key_hash=api_key_hash, is_env_key=is_env_key
-    )
+    response = await orchestrator.execute(request, request_id, api_key_hash=api_key_hash, is_env_key=is_env_key)
 
     logger.info(
         "Code execution completed",

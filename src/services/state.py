@@ -20,8 +20,8 @@ Wire format vs storage format:
 import base64
 import hashlib
 import json
-from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Tuple
+from datetime import UTC, datetime, timedelta, timezone
+from typing import List, Optional, Tuple
 
 import redis.asyncio as redis
 import structlog
@@ -45,7 +45,7 @@ class StateService:
     META_KEY_PREFIX = "session:state:meta:"
     UPLOAD_MARKER_PREFIX = "session:state:uploaded:"
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         """Initialize the state service.
 
         Args:
@@ -81,7 +81,7 @@ class StateService:
         """
         return hashlib.sha256(raw_bytes).hexdigest()
 
-    async def get_state(self, session_id: str) -> Optional[str]:
+    async def get_state(self, session_id: str) -> str | None:
         """Retrieve serialized state for a session.
 
         Args:
@@ -100,16 +100,14 @@ class StateService:
                 )
             return state
         except Exception as e:
-            logger.error(
-                "Failed to retrieve state", session_id=session_id[:12], error=str(e)
-            )
+            logger.error("Failed to retrieve state", session_id=session_id[:12], error=str(e))
             return None
 
     async def save_state(
         self,
         session_id: str,
         state_b64: str,
-        ttl_seconds: Optional[int] = None,
+        ttl_seconds: int | None = None,
         from_upload: bool = False,
     ) -> bool:
         """Save serialized state for a session.
@@ -133,7 +131,7 @@ class StateService:
             # Decode to compute hash on raw bytes
             raw_bytes = base64.b64decode(state_b64)
             state_hash = self.compute_hash(raw_bytes)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             # Use pipeline for atomic operations
             pipe = self.redis.pipeline(transaction=True)
@@ -171,9 +169,7 @@ class StateService:
             )
             return True
         except Exception as e:
-            logger.error(
-                "Failed to save state", session_id=session_id[:12], error=str(e)
-            )
+            logger.error("Failed to save state", session_id=session_id[:12], error=str(e))
             return False
 
     async def delete_state(self, session_id: str) -> bool:
@@ -198,12 +194,10 @@ class StateService:
             logger.debug("Deleted state from Redis", session_id=session_id[:12])
             return True
         except Exception as e:
-            logger.error(
-                "Failed to delete state", session_id=session_id[:12], error=str(e)
-            )
+            logger.error("Failed to delete state", session_id=session_id[:12], error=str(e))
             return False
 
-    async def get_state_info(self, session_id: str) -> Optional[dict]:
+    async def get_state_info(self, session_id: str) -> dict | None:
         """Get metadata about stored state without retrieving the full state.
 
         Args:
@@ -228,14 +222,10 @@ class StateService:
                 }
             return None
         except Exception as e:
-            logger.error(
-                "Failed to get state info", session_id=session_id[:12], error=str(e)
-            )
+            logger.error("Failed to get state info", session_id=session_id[:12], error=str(e))
             return None
 
-    async def extend_ttl(
-        self, session_id: str, ttl_seconds: Optional[int] = None
-    ) -> bool:
+    async def extend_ttl(self, session_id: str, ttl_seconds: int | None = None) -> bool:
         """Extend the TTL of stored state.
 
         Args:
@@ -259,14 +249,12 @@ class StateService:
                 )
             return bool(result)
         except Exception as e:
-            logger.error(
-                "Failed to extend state TTL", session_id=session_id[:12], error=str(e)
-            )
+            logger.error("Failed to extend state TTL", session_id=session_id[:12], error=str(e))
             return False
 
     async def get_states_for_archival(
-        self, ttl_threshold: Optional[int] = None, limit: int = 100
-    ) -> List[Tuple[str, int, int]]:
+        self, ttl_threshold: int | None = None, limit: int = 100
+    ) -> list[tuple[str, int, int]]:
         """Find session states that should be archived based on TTL.
 
         States are ready for archival when their remaining TTL is below the threshold,
@@ -281,9 +269,7 @@ class StateService:
             List of (session_id, remaining_ttl_seconds, size_bytes) tuples
         """
         if ttl_threshold is None:
-            ttl_threshold = (
-                settings.state_ttl_seconds - settings.state_archive_after_seconds
-            )
+            ttl_threshold = settings.state_ttl_seconds - settings.state_archive_after_seconds
 
         results: list[str] = []
         try:
@@ -292,9 +278,7 @@ class StateService:
             pattern = f"{self.KEY_PREFIX}*"
 
             while len(results) < limit:
-                cursor, keys = await self.redis.scan(
-                    cursor=cursor, match=pattern, count=100
-                )
+                cursor, keys = await self.redis.scan(cursor=cursor, match=pattern, count=100)
 
                 for key in keys:
                     if len(results) >= limit:
@@ -324,7 +308,7 @@ class StateService:
             logger.error("Failed to scan for archival states", error=str(e))
             return []
 
-    async def get_state_with_ttl(self, session_id: str) -> Tuple[Optional[str], int]:
+    async def get_state_with_ttl(self, session_id: str) -> tuple[str | None, int]:
         """Get state and its remaining TTL.
 
         Args:
@@ -343,14 +327,12 @@ class StateService:
             state, ttl = results
             return state, ttl if ttl > 0 else 0
         except Exception as e:
-            logger.error(
-                "Failed to get state with TTL", session_id=session_id[:12], error=str(e)
-            )
+            logger.error("Failed to get state with TTL", session_id=session_id[:12], error=str(e))
             return None, 0
 
     # ===== New methods for client-side state persistence =====
 
-    async def get_state_hash(self, session_id: str) -> Optional[str]:
+    async def get_state_hash(self, session_id: str) -> str | None:
         """Get the hash of stored state for ETag support.
 
         Args:
@@ -365,12 +347,10 @@ class StateService:
                 return hash_value.decode("utf-8")
             return hash_value
         except Exception as e:
-            logger.error(
-                "Failed to get state hash", session_id=session_id[:12], error=str(e)
-            )
+            logger.error("Failed to get state hash", session_id=session_id[:12], error=str(e))
             return None
 
-    async def get_state_raw(self, session_id: str) -> Optional[bytes]:
+    async def get_state_raw(self, session_id: str) -> bytes | None:
         """Get state as raw binary bytes (for wire transfer).
 
         Decodes the base64-encoded state stored in Redis.
@@ -387,16 +367,14 @@ class StateService:
                 return base64.b64decode(state_b64)
             return None
         except Exception as e:
-            logger.error(
-                "Failed to get raw state", session_id=session_id[:12], error=str(e)
-            )
+            logger.error("Failed to get raw state", session_id=session_id[:12], error=str(e))
             return None
 
     async def save_state_raw(
         self,
         session_id: str,
         raw_bytes: bytes,
-        ttl_seconds: Optional[int] = None,
+        ttl_seconds: int | None = None,
         from_upload: bool = False,
     ) -> bool:
         """Save state from raw binary bytes (from wire transfer).
@@ -414,16 +392,12 @@ class StateService:
         """
         try:
             state_b64 = base64.b64encode(raw_bytes).decode("utf-8")
-            return await self.save_state(
-                session_id, state_b64, ttl_seconds=ttl_seconds, from_upload=from_upload
-            )
+            return await self.save_state(session_id, state_b64, ttl_seconds=ttl_seconds, from_upload=from_upload)
         except Exception as e:
-            logger.error(
-                "Failed to save raw state", session_id=session_id[:12], error=str(e)
-            )
+            logger.error("Failed to save raw state", session_id=session_id[:12], error=str(e))
             return False
 
-    async def get_full_state_info(self, session_id: str) -> Optional[dict]:
+    async def get_full_state_info(self, session_id: str) -> dict | None:
         """Get full metadata about stored state including expiration.
 
         Args:
@@ -457,7 +431,7 @@ class StateService:
             # Calculate expiration time
             expires_at = None
             if ttl > 0:
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 expires_at = now + timedelta(seconds=ttl)
 
             return {

@@ -3,9 +3,9 @@
 # Standard library imports
 import asyncio
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from enum import Enum
-from typing import Dict, Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 # Third-party imports
 import redis.asyncio as redis
@@ -39,18 +39,18 @@ class HealthCheckResult:
         self,
         service: str,
         status: HealthStatus,
-        response_time_ms: Optional[float] = None,
-        details: Optional[Dict[str, Any]] = None,
-        error: Optional[str] = None,
+        response_time_ms: float | None = None,
+        details: dict[str, Any] | None = None,
+        error: str | None = None,
     ):
         self.service = service
         self.status = status
         self.response_time_ms = response_time_ms
         self.details = details or {}
         self.error = error
-        self.timestamp = datetime.now(timezone.utc)
+        self.timestamp = datetime.now(UTC)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         result = {
             "service": self.service,
@@ -75,22 +75,20 @@ class HealthCheckService:
 
     def __init__(self):
         """Initialize health check service."""
-        self._redis_client: Optional[redis.Redis] = None
-        self._minio_client: Optional[Minio] = None
-        self._kubernetes_manager: Optional["KubernetesManager"] = None
-        self._last_check_time: Optional[datetime] = None
-        self._cached_results: Dict[str, HealthCheckResult] = {}
+        self._redis_client: redis.Redis | None = None
+        self._minio_client: Minio | None = None
+        self._kubernetes_manager: KubernetesManager | None = None
+        self._last_check_time: datetime | None = None
+        self._cached_results: dict[str, HealthCheckResult] = {}
         self._cache_ttl_seconds = 30  # Cache results for 30 seconds
 
     def set_kubernetes_manager(self, manager: "KubernetesManager") -> None:
         """Set Kubernetes manager reference for health checks."""
         self._kubernetes_manager = manager
 
-    async def check_all_services(
-        self, use_cache: bool = True
-    ) -> Dict[str, HealthCheckResult]:
+    async def check_all_services(self, use_cache: bool = True) -> dict[str, HealthCheckResult]:
         """Perform health checks on all services."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Check if we can use cached results
         if (
@@ -123,9 +121,7 @@ class HealthCheckService:
         for i, result in enumerate(results):
             service_name = service_names[i]
             if isinstance(result, Exception):
-                logger.error(
-                    f"Health check failed for {service_name}", error=str(result)
-                )
+                logger.error(f"Health check failed for {service_name}", error=str(result))
                 health_results[service_name] = HealthCheckResult(
                     service=service_name,
                     status=HealthStatus.UNHEALTHY,
@@ -176,11 +172,7 @@ class HealthCheckService:
                 status = HealthStatus.DEGRADED
 
             memory_usage_mb = info.get("used_memory", 0) / (1024 * 1024)
-            max_memory_mb = (
-                info.get("maxmemory", 0) / (1024 * 1024)
-                if info.get("maxmemory", 0) > 0
-                else None
-            )
+            max_memory_mb = info.get("maxmemory", 0) / (1024 * 1024) if info.get("maxmemory", 0) > 0 else None
 
             details = {
                 "version": info.get("redis_version", "unknown"),
@@ -193,9 +185,7 @@ class HealthCheckService:
 
             if max_memory_mb:
                 details["max_memory_mb"] = round(max_memory_mb, 2)
-                details["memory_usage_percent"] = round(
-                    (memory_usage_mb / max_memory_mb) * 100, 2
-                )
+                details["memory_usage_percent"] = round((memory_usage_mb / max_memory_mb) * 100, 2)
 
             return HealthCheckResult(
                 service="redis",
@@ -232,15 +222,11 @@ class HealthCheckService:
             loop = asyncio.get_event_loop()
 
             # Check if our bucket exists (doesn't require s3:ListAllMyBuckets permission)
-            bucket_exists = await loop.run_in_executor(
-                None, self._minio_client.bucket_exists, settings.minio_bucket
-            )
+            bucket_exists = await loop.run_in_executor(None, self._minio_client.bucket_exists, settings.minio_bucket)
 
             if not bucket_exists:
                 # Try to create the bucket
-                await loop.run_in_executor(
-                    None, self._minio_client.make_bucket, settings.minio_bucket
-                )
+                await loop.run_in_executor(None, self._minio_client.make_bucket, settings.minio_bucket)
                 logger.info(f"Created missing bucket: {settings.minio_bucket}")
 
             # Test read/write operations
@@ -453,9 +439,7 @@ class HealthCheckService:
                 error=str(e),
             )
 
-    def get_overall_status(
-        self, service_results: Dict[str, HealthCheckResult]
-    ) -> HealthStatus:
+    def get_overall_status(self, service_results: dict[str, HealthCheckResult]) -> HealthStatus:
         """Determine overall system health status."""
         if not service_results:
             return HealthStatus.UNKNOWN
@@ -483,12 +467,10 @@ class HealthCheckService:
             if self._redis_client:
                 try:
                     await asyncio.wait_for(self._redis_client.close(), timeout=2.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning("Redis connection close timed out during shutdown")
                 except Exception as e:
-                    logger.warning(
-                        f"Error closing Redis connection during shutdown: {e}"
-                    )
+                    logger.warning(f"Error closing Redis connection during shutdown: {e}")
 
             logger.info("Closed health check service connections")
 

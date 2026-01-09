@@ -7,7 +7,7 @@ pool with configurable size.
 
 import asyncio
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Dict, List, Optional, Set
 from uuid import uuid4
 
@@ -16,9 +16,9 @@ import structlog
 from kubernetes.client import ApiException
 
 from .client import (
+    create_pod_manifest,
     get_core_api,
     get_current_namespace,
-    create_pod_manifest,
 )
 from .models import (
     ExecutionResult,
@@ -43,7 +43,7 @@ class PodPool:
     def __init__(
         self,
         config: PoolConfig,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ):
         """Initialize the pod pool.
 
@@ -57,19 +57,19 @@ class PodPool:
         self.pool_size = config.pool_size
 
         # Pool state
-        self._pods: Dict[str, PooledPod] = {}  # uid -> PooledPod
+        self._pods: dict[str, PooledPod] = {}  # uid -> PooledPod
         self._available: asyncio.Queue[str] = asyncio.Queue()
         self._lock = asyncio.Lock()
 
         # Session tracking (for cleanup)
-        self._session_pods: Dict[str, str] = {}  # session_id -> pod_uid
+        self._session_pods: dict[str, str] = {}  # session_id -> pod_uid
 
         # HTTP client for health checks and execution
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
 
         # Background tasks
-        self._replenish_task: Optional[asyncio.Task] = None
-        self._health_check_task: Optional[asyncio.Task] = None
+        self._replenish_task: asyncio.Task | None = None
+        self._health_check_task: asyncio.Task | None = None
         self._running = False
 
     async def _get_http_client(self) -> httpx.AsyncClient:
@@ -151,12 +151,10 @@ class PodPool:
         # Create pods in parallel (with limit)
         batch_size = min(needed, 5)
         for i in range(0, needed, batch_size):
-            tasks = [
-                self._create_warm_pod() for _ in range(min(batch_size, needed - i))
-            ]
+            tasks = [self._create_warm_pod() for _ in range(min(batch_size, needed - i))]
             await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def _create_warm_pod(self) -> Optional[PooledPod]:
+    async def _create_warm_pod(self) -> PooledPod | None:
         """Create a single warm pod."""
         core_api = get_core_api()
         if not core_api:
@@ -261,10 +259,7 @@ class PodPool:
 
                 if pod.status.phase == "Running":
                     if pod.status.container_statuses:
-                        sidecar_ready = any(
-                            cs.name == "sidecar" and cs.ready
-                            for cs in pod.status.container_statuses
-                        )
+                        sidecar_ready = any(cs.name == "sidecar" and cs.ready for cs in pod.status.container_statuses)
                         if sidecar_ready:
                             return True
 
@@ -310,9 +305,7 @@ class PodPool:
                 await asyncio.sleep(5)
 
                 async with self._lock:
-                    available_count = sum(
-                        1 for p in self._pods.values() if p.is_available
-                    )
+                    available_count = sum(1 for p in self._pods.values() if p.is_available)
 
                 if available_count < self.pool_size:
                     needed = self.pool_size - available_count
@@ -380,7 +373,7 @@ class PodPool:
                     error=str(e),
                 )
 
-    async def acquire(self, session_id: str, timeout: int = 10) -> Optional[PodHandle]:
+    async def acquire(self, session_id: str, timeout: int = 10) -> PodHandle | None:
         """Acquire a warm pod from the pool.
 
         Args:
@@ -395,7 +388,7 @@ class PodPool:
                 self._available.get(),
                 timeout=timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "Timeout acquiring pod from pool",
                 language=self.language,
@@ -409,7 +402,7 @@ class PodPool:
                 return None
 
             pooled_pod.acquired = True
-            pooled_pod.acquired_at = datetime.utcnow()
+            pooled_pod.acquired_at = datetime.now(UTC)
             pooled_pod.handle.status = PodStatus.EXECUTING
             pooled_pod.handle.session_id = session_id
 
@@ -465,8 +458,8 @@ class PodPool:
         handle: PodHandle,
         code: str,
         timeout: int = 30,
-        files: Optional[List[FileData]] = None,
-        initial_state: Optional[str] = None,
+        files: list[FileData] | None = None,
+        initial_state: str | None = None,
         capture_state: bool = False,
     ) -> ExecutionResult:
         """Execute code in an acquired pod.
@@ -581,8 +574,8 @@ class PodPoolManager:
 
     def __init__(
         self,
-        namespace: Optional[str] = None,
-        configs: Optional[List[PoolConfig]] = None,
+        namespace: str | None = None,
+        configs: list[PoolConfig] | None = None,
     ):
         """Initialize the pool manager.
 
@@ -591,8 +584,8 @@ class PodPoolManager:
             configs: Pool configurations per language
         """
         self.namespace = namespace or get_current_namespace()
-        self._pools: Dict[str, PodPool] = {}
-        self._configs: Dict[str, PoolConfig] = {}
+        self._pools: dict[str, PodPool] = {}
+        self._configs: dict[str, PoolConfig] = {}
 
         if configs:
             for config in configs:
@@ -610,11 +603,11 @@ class PodPoolManager:
         for pool in self._pools.values():
             await pool.stop()
 
-    def get_pool(self, language: str) -> Optional[PodPool]:
+    def get_pool(self, language: str) -> PodPool | None:
         """Get the pool for a language."""
         return self._pools.get(language)
 
-    def get_config(self, language: str) -> Optional[PoolConfig]:
+    def get_config(self, language: str) -> PoolConfig | None:
         """Get the configuration for a language."""
         return self._configs.get(language)
 
@@ -628,7 +621,7 @@ class PodPoolManager:
         language: str,
         session_id: str,
         timeout: int = 10,
-    ) -> Optional[PodHandle]:
+    ) -> PodHandle | None:
         """Acquire a pod from the appropriate pool.
 
         Args:
@@ -655,8 +648,8 @@ class PodPoolManager:
         handle: PodHandle,
         code: str,
         timeout: int = 30,
-        files: Optional[List[FileData]] = None,
-        initial_state: Optional[str] = None,
+        files: list[FileData] | None = None,
+        initial_state: str | None = None,
         capture_state: bool = False,
     ) -> ExecutionResult:
         """Execute code in an acquired pod."""
@@ -677,7 +670,7 @@ class PodPoolManager:
             capture_state,
         )
 
-    def get_pool_stats(self) -> Dict[str, Dict[str, int]]:
+    def get_pool_stats(self) -> dict[str, dict[str, int]]:
         """Get statistics for all pools."""
         stats = {}
         for lang, pool in self._pools.items():

@@ -8,7 +8,6 @@ import pytest
 
 from src.config.minio import MinIOConfig
 
-
 # Environment variables to clear for isolated tests
 MINIO_ENV_VARS = [
     "MINIO_ENDPOINT",
@@ -78,9 +77,7 @@ class TestMinIOConfigValidation:
     def test_requires_credentials_when_not_iam(self):
         """Test that credentials are required when use_iam is False."""
         with patch.dict(os.environ, get_clean_env(), clear=True):
-            with pytest.raises(
-                ValueError, match="access_key and secret_key are required"
-            ):
+            with pytest.raises(ValueError, match="access_key and secret_key are required"):
                 MinIOConfig(
                     minio_endpoint="minio.example.com:9000",
                     minio_use_iam=False,
@@ -231,9 +228,7 @@ class TestMinIOClientCreation:
                     f"JWT provider must return dict, got {type(jwt_result)}. "
                     "Returning a string causes 'str' object has no attribute 'get'"
                 )
-                assert (
-                    "access_token" in jwt_result
-                ), "JWT provider dict must contain 'access_token' key"
+                assert "access_token" in jwt_result, "JWT provider dict must contain 'access_token' key"
                 # Token should be stripped of whitespace
                 assert jwt_result["access_token"] == "test-jwt-token-with-whitespace"
         finally:

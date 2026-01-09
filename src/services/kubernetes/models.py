@@ -5,7 +5,7 @@ used throughout the Kubernetes execution layer.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -37,12 +37,12 @@ class PodHandle:
     namespace: str
     uid: str
     language: str
-    session_id: Optional[str] = None
+    session_id: str | None = None
     status: PodStatus = PodStatus.PENDING
-    pod_ip: Optional[str] = None
+    pod_ip: str | None = None
     sidecar_port: int = 8080
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    labels: Dict[str, str] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    labels: dict[str, str] = field(default_factory=dict)
 
     @property
     def sidecar_url(self) -> str:
@@ -76,8 +76,8 @@ class ExecutionResult:
     stdout: str
     stderr: str
     execution_time_ms: int
-    state: Optional[str] = None  # Base64-encoded state
-    state_errors: Optional[List[str]] = None
+    state: str | None = None  # Base64-encoded state
+    state_errors: list[str] | None = None
 
 
 @dataclass
@@ -86,7 +86,7 @@ class FileData:
 
     filename: str
     content: bytes
-    session_id: Optional[str] = None
+    session_id: str | None = None
 
 
 @dataclass
@@ -95,10 +95,10 @@ class PodSpec:
 
     language: str
     image: str
-    session_id: Optional[str] = None
-    namespace: Optional[str] = None
-    labels: Dict[str, str] = field(default_factory=dict)
-    annotations: Dict[str, str] = field(default_factory=dict)
+    session_id: str | None = None
+    namespace: str | None = None
+    labels: dict[str, str] = field(default_factory=dict)
+    annotations: dict[str, str] = field(default_factory=dict)
 
     # Resource limits
     cpu_limit: str = "1"
@@ -126,8 +126,8 @@ class PoolConfig:
     sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest"
 
     # Resource limits (can override defaults)
-    cpu_limit: Optional[str] = None
-    memory_limit: Optional[str] = None
+    cpu_limit: str | None = None
+    memory_limit: str | None = None
 
     # Image pull policy (Always, IfNotPresent, Never)
     image_pull_policy: str = "Always"
@@ -145,8 +145,8 @@ class PooledPod:
     handle: PodHandle
     language: str
     acquired: bool = False
-    acquired_at: Optional[datetime] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    acquired_at: datetime | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     health_check_failures: int = 0
 
     @property
@@ -168,14 +168,14 @@ class JobHandle:
     uid: str
     language: str
     session_id: str
-    pod_name: Optional[str] = None
-    pod_ip: Optional[str] = None
+    pod_name: str | None = None
+    pod_ip: str | None = None
     status: str = "pending"
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime | None = None
 
     @property
-    def sidecar_url(self) -> Optional[str]:
+    def sidecar_url(self) -> str | None:
         """Get the URL for the sidecar HTTP API."""
         if self.pod_ip:
             return f"http://{self.pod_ip}:8080"

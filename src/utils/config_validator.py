@@ -1,7 +1,8 @@
 """Configuration validation utilities."""
 
 import logging
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 import redis
 from minio.error import S3Error
 
@@ -20,8 +21,8 @@ class ConfigValidator:
     """Validates application configuration and external service connectivity."""
 
     def __init__(self):
-        self.errors: List[str] = []
-        self.warnings: List[str] = []
+        self.errors: list[str] = []
+        self.warnings: list[str] = []
 
     def validate_all(self) -> bool:
         """Validate all configuration settings and external services."""
@@ -83,9 +84,7 @@ class ConfigValidator:
         """Validate resource limit configuration."""
         # Check critical limit conflicts
         if settings.max_total_file_size_mb < settings.max_file_size_mb:
-            self.errors.append(
-                "Total file size limit is less than individual file size limit"
-            )
+            self.errors.append("Total file size limit is less than individual file size limit")
 
     def _validate_file_config(self):
         """Validate file handling configuration."""
@@ -134,9 +133,7 @@ class ConfigValidator:
             bucket_exists = client.bucket_exists(settings.minio_bucket)
 
             if not bucket_exists:
-                self.warnings.append(
-                    f"MinIO bucket '{settings.minio_bucket}' does not exist - will be created"
-                )
+                self.warnings.append(f"MinIO bucket '{settings.minio_bucket}' does not exist - will be created")
 
         except S3Error as e:
             # Treat as warning in development mode to allow startup without MinIO
@@ -173,13 +170,9 @@ class ConfigValidator:
                             mem_mb = int(mem_str) // (1024 * 1024)
 
                         if mem_mb < 64:
-                            self.warnings.append(
-                                f"Kubernetes memory limit {mem_str} may be too low"
-                            )
+                            self.warnings.append(f"Kubernetes memory limit {mem_str} may be too low")
                     except (ValueError, TypeError):
-                        self.warnings.append(
-                            f"Invalid Kubernetes memory limit format: {settings.k8s_memory_limit}"
-                        )
+                        self.warnings.append(f"Invalid Kubernetes memory limit format: {settings.k8s_memory_limit}")
 
                 # Validate image registry is set
                 if not settings.k8s_image_registry:
@@ -195,7 +188,7 @@ def validate_configuration() -> bool:
     return validator.validate_all()
 
 
-def get_configuration_summary() -> Dict[str, Any]:
+def get_configuration_summary() -> dict[str, Any]:
     """Get a summary of current configuration for debugging."""
     return {
         "debug": settings.api_debug,

@@ -1,6 +1,7 @@
 """Security configuration."""
 
 from typing import List
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -21,7 +22,7 @@ class SecurityConfig(BaseSettings):
     api_key_cache_ttl: int = Field(default=300, ge=60)
 
     # File Security
-    allowed_file_extensions: List[str] = Field(
+    allowed_file_extensions: list[str] = Field(
         default_factory=lambda: [
             # Text and documentation
             ".txt",
@@ -99,9 +100,7 @@ class SecurityConfig(BaseSettings):
             ".vcf",
         ]
     )
-    blocked_file_patterns: List[str] = Field(
-        default_factory=lambda: ["*.exe", "*.dll", "*.so", "*.dylib", "*.bin"]
-    )
+    blocked_file_patterns: list[str] = Field(default_factory=lambda: ["*.exe", "*.dll", "*.so", "*.dylib", "*.bin"])
 
     # Container Isolation
     enable_network_isolation: bool = Field(default=True)
@@ -116,11 +115,9 @@ class SecurityConfig(BaseSettings):
         """Keep as string, will be parsed when needed."""
         return v
 
-    def get_valid_api_keys(self) -> List[str]:
+    def get_valid_api_keys(self) -> list[str]:
         """Get all valid API keys including the primary key."""
         keys = [self.api_key]
         if self.api_keys:
-            keys.extend(
-                [key.strip() for key in self.api_keys.split(",") if key.strip()]
-            )
+            keys.extend([key.strip() for key in self.api_keys.split(",") if key.strip()])
         return list(set(keys))

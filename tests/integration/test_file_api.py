@@ -3,10 +3,11 @@
 These tests use real infrastructure (MinIO, Redis) - requires docker-compose up.
 """
 
-import pytest
-from fastapi.testclient import TestClient
 import io
 import uuid
+
+import pytest
+from fastapi.testclient import TestClient
 
 from src.main import app
 
@@ -126,9 +127,7 @@ class TestFileList:
         session_id = upload_response.json()["session_id"]
 
         # List with simple detail
-        response = client.get(
-            f"/files/{session_id}?detail=simple", headers=auth_headers
-        )
+        response = client.get(f"/files/{session_id}?detail=simple", headers=auth_headers)
 
         assert response.status_code == 200
         files_list = response.json()
@@ -167,9 +166,7 @@ class TestFileDownload:
 
     def test_download_nonexistent_file(self, client, auth_headers, unique_session_id):
         """Test downloading a file that doesn't exist."""
-        response = client.get(
-            f"/download/{unique_session_id}/nonexistent-file-id", headers=auth_headers
-        )
+        response = client.get(f"/download/{unique_session_id}/nonexistent-file-id", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -189,9 +186,7 @@ class TestFileDelete:
         file_id = upload_response.json()["files"][0]["fileId"]
 
         # Delete the file
-        delete_response = client.delete(
-            f"/files/{session_id}/{file_id}", headers=auth_headers
-        )
+        delete_response = client.delete(f"/files/{session_id}/{file_id}", headers=auth_headers)
 
         assert delete_response.status_code == 200
 
@@ -202,9 +197,7 @@ class TestFileDelete:
 
     def test_delete_nonexistent_file(self, client, auth_headers, unique_session_id):
         """Test deleting a file that doesn't exist."""
-        response = client.delete(
-            f"/files/{unique_session_id}/nonexistent-file-id", headers=auth_headers
-        )
+        response = client.delete(f"/files/{unique_session_id}/nonexistent-file-id", headers=auth_headers)
 
         assert response.status_code == 404
 

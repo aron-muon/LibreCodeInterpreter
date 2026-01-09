@@ -10,8 +10,8 @@ Manages API keys stored in Redis with support for:
 import hashlib
 import hmac
 import secrets
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Tuple, List, Dict
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Dict, List, Optional, Tuple
 
 import redis.asyncio as redis
 import structlog
@@ -20,9 +20,9 @@ from ..config import settings
 from ..core.pool import redis_pool
 from ..models.api_key import (
     ApiKeyRecord,
+    KeyValidationResult,
     RateLimits,
     RateLimitStatus,
-    KeyValidationResult,
 )
 
 logger = structlog.get_logger(__name__)
@@ -41,7 +41,7 @@ class ApiKeyManagerService:
     # Cache TTL
     VALIDATION_CACHE_TTL = 300  # 5 minutes
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         """Initialize the API key manager.
 
         Args:
@@ -64,7 +64,7 @@ class ApiKeyManagerService:
         """Get short version of hash for caching."""
         return key_hash[:16]
 
-    async def ensure_env_key_records(self) -> List[ApiKeyRecord]:
+    async def ensure_env_key_records(self) -> list[ApiKeyRecord]:
         """Ensure env key records exist in Redis for visibility.
 
         Creates or updates records for API_KEY and API_KEYS env vars.
@@ -78,9 +78,7 @@ class ApiKeyManagerService:
         # Primary API_KEY
         primary_key = settings.api_key
         if primary_key and primary_key != "test-api-key":
-            record = await self._ensure_single_env_key_record(
-                primary_key, "Environment Key (API_KEY)"
-            )
+            record = await self._ensure_single_env_key_record(primary_key, "Environment Key (API_KEY)")
             if record:
                 env_records.append(record)
 
@@ -94,9 +92,7 @@ class ApiKeyManagerService:
 
         return env_records
 
-    async def _ensure_single_env_key_record(
-        self, api_key: str, name: str
-    ) -> Optional[ApiKeyRecord]:
+    async def _ensure_single_env_key_record(self, api_key: str, name: str) -> ApiKeyRecord | None:
         """Create or update a single env key record.
 
         Args:
@@ -127,7 +123,7 @@ class ApiKeyManagerService:
                 key_hash=key_hash,
                 key_prefix=api_key[:11] if len(api_key) >= 11 else api_key,
                 name=name,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 enabled=True,
                 rate_limits=RateLimits(),  # Unlimited
                 metadata={"type": "environment"},
@@ -152,7 +148,7 @@ class ApiKeyManagerService:
             logger.warning("Failed to ensure env key record", name=name, error=str(e))
             return None
 
-    async def get_env_key_records(self) -> List[ApiKeyRecord]:
+    async def get_env_key_records(self) -> list[ApiKeyRecord]:
         """Get all env key records.
 
         Returns:
@@ -163,9 +159,7 @@ class ApiKeyManagerService:
             records = []
 
             for key_hash in key_hashes:
-                hash_str = (
-                    key_hash.decode() if isinstance(key_hash, bytes) else key_hash
-                )
+                hash_str = key_hash.decode() if isinstance(key_hash, bytes) else key_hash
                 record = await self.get_key(hash_str)
                 if record:
                     records.append(record)
@@ -184,7 +178,7 @@ class ApiKeyManagerService:
         Args:
             key_hash: Full SHA256 hash of the key
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record_key = f"{self.RECORD_PREFIX}{key_hash}"
 
         try:
@@ -214,9 +208,9 @@ class ApiKeyManagerService:
     async def create_key(
         self,
         name: str,
-        rate_limits: Optional[RateLimits] = None,
-        metadata: Optional[Dict[str, str]] = None,
-    ) -> Tuple[str, ApiKeyRecord]:
+        rate_limits: RateLimits | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> tuple[str, ApiKeyRecord]:
         """Create a new API key.
 
         Args:
@@ -237,7 +231,7 @@ class ApiKeyManagerService:
             key_hash=key_hash,
             key_prefix=full_key[:11],  # "sk-" + first 8 chars
             name=name,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             enabled=True,
             rate_limits=rate_limits or RateLimits(),
             metadata=metadata or {},
@@ -259,7 +253,7 @@ class ApiKeyManagerService:
 
         return full_key, record
 
-    async def get_key(self, key_hash: str) -> Optional[ApiKeyRecord]:
+    async def get_key(self, key_hash: str) -> ApiKeyRecord | None:
         """Get API key record by hash.
 
         Args:
@@ -276,7 +270,7 @@ class ApiKeyManagerService:
 
         return ApiKeyRecord.from_redis_hash(data)
 
-    async def list_keys(self, include_env_keys: bool = True) -> List[ApiKeyRecord]:
+    async def list_keys(self, include_env_keys: bool = True) -> list[ApiKeyRecord]:
         """List all API keys (without the actual key values).
 
         Args:
@@ -304,18 +298,16 @@ class ApiKeyManagerService:
                     records.append(env_record)
 
         # Sort by source (env keys first), then created_at descending
-        records.sort(
-            key=lambda r: (r.source != "environment", r.created_at), reverse=False
-        )
+        records.sort(key=lambda r: (r.source != "environment", r.created_at), reverse=False)
         records.sort(key=lambda r: r.created_at, reverse=True)
         return records
 
     async def update_key(
         self,
         key_hash: str,
-        enabled: Optional[bool] = None,
-        rate_limits: Optional[RateLimits] = None,
-        name: Optional[str] = None,
+        enabled: bool | None = None,
+        rate_limits: RateLimits | None = None,
+        name: str | None = None,
     ) -> bool:
         """Update API key properties.
 
@@ -345,9 +337,7 @@ class ApiKeyManagerService:
         await self.redis.hset(record_key, mapping=record.to_redis_hash())
 
         # Invalidate validation cache
-        await self.redis.delete(
-            f"{self.VALID_CACHE_PREFIX}{self._short_hash(key_hash)}"
-        )
+        await self.redis.delete(f"{self.VALID_CACHE_PREFIX}{self._short_hash(key_hash)}")
 
         logger.info("Updated API key", key_prefix=record.key_prefix)
         return True
@@ -378,7 +368,7 @@ class ApiKeyManagerService:
         logger.info("Revoked API key", key_hash=key_hash[:16])
         return True
 
-    async def find_key_by_prefix(self, prefix: str) -> Optional[str]:
+    async def find_key_by_prefix(self, prefix: str) -> str | None:
         """Find a key hash by its prefix.
 
         Args:
@@ -409,9 +399,7 @@ class ApiKeyManagerService:
             KeyValidationResult with validation details
         """
         if not api_key:
-            return KeyValidationResult(
-                is_valid=False, error_message="API key is required"
-            )
+            return KeyValidationResult(is_valid=False, error_message="API key is required")
 
         key_hash = self._hash_key(api_key)
         short_hash = self._short_hash(key_hash)
@@ -433,9 +421,7 @@ class ApiKeyManagerService:
                         )
                 elif cached == b"env" or cached == "env":
                     # Cache hit - this is the env var key
-                    return KeyValidationResult(
-                        is_valid=True, key_hash=key_hash, is_env_key=True
-                    )
+                    return KeyValidationResult(is_valid=True, key_hash=key_hash, is_env_key=True)
         except Exception as e:
             logger.warning("Failed to check validation cache", error=str(e))
 
@@ -463,18 +449,14 @@ class ApiKeyManagerService:
         if env_key and hmac.compare_digest(api_key, env_key):
             # Cache that this is the env key
             await self._cache_validation(short_hash, "env")
-            return KeyValidationResult(
-                is_valid=True, key_hash=key_hash, is_env_key=True
-            )
+            return KeyValidationResult(is_valid=True, key_hash=key_hash, is_env_key=True)
 
         # Also check API_KEYS env var if set
         additional_keys = settings.get_valid_api_keys()
         for valid_key in additional_keys:
             if hmac.compare_digest(api_key, valid_key):
                 await self._cache_validation(short_hash, "env")
-                return KeyValidationResult(
-                    is_valid=True, key_hash=key_hash, is_env_key=True
-                )
+                return KeyValidationResult(is_valid=True, key_hash=key_hash, is_env_key=True)
 
         return KeyValidationResult(is_valid=False, error_message="Invalid API key")
 
@@ -486,9 +468,7 @@ class ApiKeyManagerService:
         except Exception as e:
             logger.warning("Failed to cache validation", error=str(e))
 
-    async def check_rate_limits(
-        self, key_hash: str
-    ) -> Tuple[bool, Optional[RateLimitStatus]]:
+    async def check_rate_limits(self, key_hash: str) -> tuple[bool, RateLimitStatus | None]:
         """Check if an API key has exceeded any rate limits.
 
         Args:
@@ -505,28 +485,20 @@ class ApiKeyManagerService:
         if record.rate_limits.is_unlimited():
             return True, None
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Check each rate limit period (shortest first for fail-fast)
         checks = []
         if record.rate_limits.per_second is not None:
-            checks.append(
-                ("per_second", record.rate_limits.per_second, self._get_second_key(now))
-            )
+            checks.append(("per_second", record.rate_limits.per_second, self._get_second_key(now)))
         if record.rate_limits.per_minute is not None:
-            checks.append(
-                ("per_minute", record.rate_limits.per_minute, self._get_minute_key(now))
-            )
+            checks.append(("per_minute", record.rate_limits.per_minute, self._get_minute_key(now)))
         if record.rate_limits.hourly is not None:
-            checks.append(
-                ("hourly", record.rate_limits.hourly, self._get_hour_key(now))
-            )
+            checks.append(("hourly", record.rate_limits.hourly, self._get_hour_key(now)))
         if record.rate_limits.daily is not None:
             checks.append(("daily", record.rate_limits.daily, self._get_day_key(now)))
         if record.rate_limits.monthly is not None:
-            checks.append(
-                ("monthly", record.rate_limits.monthly, self._get_month_key(now))
-            )
+            checks.append(("monthly", record.rate_limits.monthly, self._get_month_key(now)))
 
         short_hash = self._short_hash(key_hash)
 
@@ -547,13 +519,11 @@ class ApiKeyManagerService:
                         is_exceeded=True,
                     )
             except Exception as e:
-                logger.warning(
-                    "Failed to check rate limit", period=period, error=str(e)
-                )
+                logger.warning("Failed to check rate limit", period=period, error=str(e))
 
         return True, None
 
-    async def get_rate_limit_status(self, key_hash: str) -> List[RateLimitStatus]:
+    async def get_rate_limit_status(self, key_hash: str) -> list[RateLimitStatus]:
         """Get current rate limit status for all periods.
 
         Args:
@@ -566,7 +536,7 @@ class ApiKeyManagerService:
         if not record:
             return []
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         short_hash = self._short_hash(key_hash)
         statuses = []
 
@@ -608,7 +578,7 @@ class ApiKeyManagerService:
         Args:
             key_hash: Full SHA256 hash of the key
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         short_hash = self._short_hash(key_hash)
 
         # Update counters for all periods
@@ -636,7 +606,7 @@ class ApiKeyManagerService:
         except Exception as e:
             logger.warning("Failed to increment usage", error=str(e))
 
-    async def get_usage(self, key_hash: str) -> Dict[str, int]:
+    async def get_usage(self, key_hash: str) -> dict[str, int]:
         """Get current usage for all periods.
 
         Args:
@@ -645,7 +615,7 @@ class ApiKeyManagerService:
         Returns:
             Dict with per_second, per_minute, hourly, daily, monthly usage counts
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         short_hash = self._short_hash(key_hash)
 
         result = {
@@ -708,9 +678,7 @@ class ApiKeyManagerService:
         elif period == "hourly":
             return now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
         elif period == "daily":
-            return now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(
-                days=1
-            )
+            return now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
         elif period == "monthly":
             # First day of next month
             if now.month == 12:
@@ -736,7 +704,7 @@ class ApiKeyManagerService:
 
 
 # Global service instance
-_api_key_manager: Optional[ApiKeyManagerService] = None
+_api_key_manager: ApiKeyManagerService | None = None
 
 
 async def get_api_key_manager() -> ApiKeyManagerService:

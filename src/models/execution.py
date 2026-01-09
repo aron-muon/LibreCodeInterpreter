@@ -1,7 +1,7 @@
 """Execution data models for the Code Interpreter API."""
 
 # Standard library imports
-from datetime import datetime
+from datetime import UTC, datetime, timezone
 from enum import Enum
 from typing import List, Optional
 
@@ -35,13 +35,9 @@ class ExecutionOutput(BaseModel):
 
     type: OutputType
     content: str = Field(..., description="Output content or file path")
-    mime_type: Optional[str] = Field(
-        default=None, description="MIME type for file outputs"
-    )
-    size: Optional[int] = Field(
-        default=None, description="Size in bytes for file outputs"
-    )
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    mime_type: str | None = Field(default=None, description="MIME type for file outputs")
+    size: int | None = Field(default=None, description="Size in bytes for file outputs")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class CodeExecution(BaseModel):
@@ -54,18 +50,18 @@ class CodeExecution(BaseModel):
 
     # Execution state
     status: ExecutionStatus = Field(default=ExecutionStatus.PENDING)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    started_at: Optional[datetime] = Field(default=None)
-    completed_at: Optional[datetime] = Field(default=None)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime | None = Field(default=None)
+    completed_at: datetime | None = Field(default=None)
 
     # Results
-    outputs: List[ExecutionOutput] = Field(default_factory=list)
-    exit_code: Optional[int] = Field(default=None)
-    error_message: Optional[str] = Field(default=None)
+    outputs: list[ExecutionOutput] = Field(default_factory=list)
+    exit_code: int | None = Field(default=None)
+    error_message: str | None = Field(default=None)
 
     # Resource usage
-    execution_time_ms: Optional[int] = Field(default=None)
-    memory_peak_mb: Optional[float] = Field(default=None)
+    execution_time_ms: int | None = Field(default=None)
+    memory_peak_mb: float | None = Field(default=None)
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}
@@ -76,9 +72,7 @@ class ExecuteCodeRequest(BaseModel):
 
     code: str = Field(..., description="Code to execute", min_length=1)
     language: str = Field(default="py", description="Programming language")
-    timeout: Optional[int] = Field(
-        default=None, description="Execution timeout in seconds"
-    )
+    timeout: int | None = Field(default=None, description="Execution timeout in seconds")
 
 
 class ExecuteCodeResponse(BaseModel):
@@ -86,10 +80,10 @@ class ExecuteCodeResponse(BaseModel):
 
     execution_id: str
     status: ExecutionStatus
-    outputs: List[ExecutionOutput] = Field(default_factory=list)
-    exit_code: Optional[int] = None
-    error_message: Optional[str] = None
-    execution_time_ms: Optional[int] = None
+    outputs: list[ExecutionOutput] = Field(default_factory=list)
+    exit_code: int | None = None
+    error_message: str | None = None
+    execution_time_ms: int | None = None
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}

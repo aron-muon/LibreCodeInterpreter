@@ -8,8 +8,8 @@ This service handles API key validation with support for:
 # Standard library imports
 import hashlib
 import hmac
-from datetime import datetime
-from typing import Optional, Dict, Any
+from datetime import UTC, datetime, timezone
+from typing import Any, Dict, Optional
 
 # Third-party imports
 import redis.asyncio as redis
@@ -30,7 +30,7 @@ class AuthenticationService:
     - Environment variable API_KEY for backward compatibility (unlimited)
     """
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         """Initialize authentication service."""
         self.redis_client = redis_client
         self._cache_ttl = 300  # 5 minutes cache for API key validation
@@ -74,9 +74,7 @@ class AuthenticationService:
             KeyValidationResult with validation details
         """
         if not api_key:
-            return KeyValidationResult(
-                is_valid=False, error_message="API key is required"
-            )
+            return KeyValidationResult(is_valid=False, error_message="API key is required")
 
         # Use API key manager for validation
         try:
@@ -125,16 +123,12 @@ class AuthenticationService:
 
         # Check against env var API_KEY
         if self._secure_compare(api_key, settings.api_key):
-            return KeyValidationResult(
-                is_valid=True, key_hash=key_hash, is_env_key=True
-            )
+            return KeyValidationResult(is_valid=True, key_hash=key_hash, is_env_key=True)
 
         # Check additional API_KEYS
         for valid_key in settings.get_valid_api_keys():
             if self._secure_compare(api_key, valid_key):
-                return KeyValidationResult(
-                    is_valid=True, key_hash=key_hash, is_env_key=True
-                )
+                return KeyValidationResult(is_valid=True, key_hash=key_hash, is_env_key=True)
 
         return KeyValidationResult(is_valid=False, error_message="Invalid API key")
 
@@ -185,9 +179,7 @@ class AuthenticationService:
             key_prefix=api_key[:8] + "..." if api_key else "None",
         )
 
-    async def log_authentication_attempt(
-        self, api_key: str, success: bool, request_info: Dict[str, Any]
-    ) -> None:
+    async def log_authentication_attempt(self, api_key: str, success: bool, request_info: dict[str, Any]) -> None:
         """Log authentication attempts for security monitoring."""
         # Only log failures and rate limit events for security
         if not success:
@@ -224,9 +216,7 @@ class AuthenticationService:
             max_failures = 10  # Max 10 failures per hour
 
             if failures >= max_failures:
-                logger.warning(
-                    "Rate limit exceeded for IP", client_ip=client_ip, failures=failures
-                )
+                logger.warning("Rate limit exceeded for IP", client_ip=client_ip, failures=failures)
                 return False
 
             return True
@@ -234,7 +224,7 @@ class AuthenticationService:
             logger.warning("Failed to check rate limit", error=str(e))
             return True  # Allow request if rate limit check fails
 
-    async def get_authentication_stats(self) -> Dict[str, Any]:
+    async def get_authentication_stats(self) -> dict[str, Any]:
         """Get authentication statistics for monitoring."""
         if not self.redis_client:
             return {"error": "Redis not available"}
@@ -267,11 +257,9 @@ class AuthenticationService:
 
             return {
                 "total_recent_failures": total_failures,
-                "failing_ips": sorted(
-                    failure_ips, key=lambda x: x["failures"], reverse=True
-                )[:10],
+                "failing_ips": sorted(failure_ips, key=lambda x: x["failures"], reverse=True)[:10],
                 "api_keys": key_stats,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         except Exception as e:
             logger.error("Failed to get authentication stats", error=str(e))
@@ -279,7 +267,7 @@ class AuthenticationService:
 
 
 # Global authentication service instance
-_auth_service: Optional[AuthenticationService] = None
+_auth_service: AuthenticationService | None = None
 
 
 async def get_auth_service() -> AuthenticationService:
@@ -297,9 +285,7 @@ async def get_auth_service() -> AuthenticationService:
             await redis_client.ping()
             logger.info("Redis connection established for authentication service")
         except Exception as e:
-            logger.warning(
-                "Failed to connect to Redis for authentication", error=str(e)
-            )
+            logger.warning("Failed to connect to Redis for authentication", error=str(e))
             redis_client = None
 
         _auth_service = AuthenticationService(redis_client)

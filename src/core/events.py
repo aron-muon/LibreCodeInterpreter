@@ -22,6 +22,7 @@ Usage:
 import asyncio
 from dataclasses import dataclass
 from typing import Any, Callable, Coroutine, Dict, List, Type, TypeVar
+
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -47,12 +48,10 @@ class EventBus:
     """
 
     def __init__(self):
-        self._handlers: Dict[Type[Event], List[EventHandler]] = {}
+        self._handlers: dict[type[Event], list[EventHandler]] = {}
         self._lock = asyncio.Lock()
 
-    def subscribe(
-        self, event_type: Type[E]
-    ) -> Callable[[EventHandler[E]], EventHandler[E]]:
+    def subscribe(self, event_type: type[E]) -> Callable[[EventHandler[E]], EventHandler[E]]:
         """Decorator to subscribe a handler to an event type.
 
         Usage:
@@ -74,7 +73,7 @@ class EventBus:
 
         return decorator
 
-    def register_handler(self, event_type: Type[E], handler: EventHandler[E]) -> None:
+    def register_handler(self, event_type: type[E], handler: EventHandler[E]) -> None:
         """Register a handler for an event type (non-decorator form).
 
         Usage:
@@ -89,7 +88,7 @@ class EventBus:
             handler=handler.__name__,
         )
 
-    def unregister_handler(self, event_type: Type[E], handler: EventHandler[E]) -> bool:
+    def unregister_handler(self, event_type: type[E], handler: EventHandler[E]) -> bool:
         """Unregister a handler from an event type.
 
         Returns True if handler was found and removed, False otherwise.
@@ -132,14 +131,14 @@ class EventBus:
 
         await asyncio.gather(*(safe_call(h) for h in handlers))
 
-    async def publish_and_wait(self, event: Event) -> List[Exception]:
+    async def publish_and_wait(self, event: Event) -> list[Exception]:
         """Publish an event and collect any errors from handlers.
 
         Returns a list of exceptions raised by handlers.
         """
         event_type = type(event)
         handlers = self._handlers.get(event_type, [])
-        errors: List[Exception] = []
+        errors: list[Exception] = []
 
         for handler in handlers:
             try:
@@ -155,7 +154,7 @@ class EventBus:
 
         return errors
 
-    def clear_handlers(self, event_type: Type[Event] = None) -> None:
+    def clear_handlers(self, event_type: type[Event] = None) -> None:
         """Clear handlers for a specific event type or all handlers."""
         if event_type:
             self._handlers.pop(event_type, None)

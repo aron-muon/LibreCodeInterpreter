@@ -1,6 +1,7 @@
 """Unit tests for the OutputProcessor."""
 
 import pytest
+
 from src.services.execution.output import OutputProcessor
 
 

@@ -46,3 +46,7 @@ source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
 version-file = "src/_version.py"
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple/"

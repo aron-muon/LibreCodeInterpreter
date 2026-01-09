@@ -1,9 +1,9 @@
 """Session data models for the Code Interpreter API."""
 
 # Standard library imports
-from datetime import datetime
+from datetime import UTC, datetime, timezone
 from enum import Enum
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
 # Third-party imports
 from pydantic import BaseModel, Field
@@ -32,41 +32,25 @@ class Session(BaseModel):
     """Session model representing a code execution environment."""
 
     session_id: str = Field(..., description="Unique session identifier")
-    status: SessionStatus = Field(
-        default=SessionStatus.ACTIVE, description="Current session status"
-    )
-    created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Session creation timestamp"
-    )
-    last_activity: datetime = Field(
-        default_factory=datetime.utcnow, description="Last activity timestamp"
-    )
+    status: SessionStatus = Field(default=SessionStatus.ACTIVE, description="Current session status")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Session creation timestamp")
+    last_activity: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Last activity timestamp")
     expires_at: datetime = Field(..., description="Session expiration timestamp")
 
     # Pod information
-    pod_name: Optional[str] = Field(default=None, description="Kubernetes pod name")
-    pod_status: Optional[str] = Field(default=None, description="Pod status")
+    pod_name: str | None = Field(default=None, description="Kubernetes pod name")
+    pod_status: str | None = Field(default=None, description="Pod status")
 
     # File management
-    files: Dict[str, FileInfo] = Field(
-        default_factory=dict, description="Files in the session"
-    )
-    working_directory: str = Field(
-        default="/mnt/data", description="Working directory path"
-    )
+    files: dict[str, FileInfo] = Field(default_factory=dict, description="Files in the session")
+    working_directory: str = Field(default="/mnt/data", description="Working directory path")
 
     # Resource usage
-    memory_usage_mb: Optional[float] = Field(
-        default=None, description="Current memory usage in MB"
-    )
-    cpu_usage_percent: Optional[float] = Field(
-        default=None, description="Current CPU usage percentage"
-    )
+    memory_usage_mb: float | None = Field(default=None, description="Current memory usage in MB")
+    cpu_usage_percent: float | None = Field(default=None, description="Current CPU usage percentage")
 
     # Metadata
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict, description="Additional session metadata"
-    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional session metadata")
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}
@@ -75,9 +59,7 @@ class Session(BaseModel):
 class SessionCreate(BaseModel):
     """Request model for creating a new session."""
 
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict, description="Optional session metadata"
-    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Optional session metadata")
 
 
 class SessionResponse(BaseModel):
@@ -87,7 +69,7 @@ class SessionResponse(BaseModel):
     status: SessionStatus
     created_at: datetime
     expires_at: datetime
-    message: Optional[str] = None
+    message: str | None = None
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}

@@ -2,20 +2,20 @@
 
 # Standard library imports
 import asyncio
-from datetime import datetime, timedelta
-from typing import List, Optional, Tuple, Dict, Any
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 # Third-party imports
 import redis.asyncio as redis
 import structlog
 from minio.error import S3Error
 
-# Local application imports
-from .interfaces import FileServiceInterface
 from ..config import settings
 from ..models import FileInfo, FileUploadRequest
 from ..utils.id_generator import generate_file_id
 
+# Local application imports
+from .interfaces import FileServiceInterface
 
 logger = structlog.get_logger()
 
@@ -30,9 +30,7 @@ class FileService(FileServiceInterface):
         self.minio_client = settings.minio.create_client()
 
         # Initialize Redis client
-        self.redis_client = redis.from_url(
-            settings.get_redis_url(), decode_responses=True
-        )
+        self.redis_client = redis.from_url(settings.get_redis_url(), decode_responses=True)
 
         self.bucket_name = settings.minio_bucket
 
@@ -41,25 +39,17 @@ class FileService(FileServiceInterface):
         try:
             # Run in thread pool since minio client is synchronous
             loop = asyncio.get_event_loop()
-            bucket_exists = await loop.run_in_executor(
-                None, self.minio_client.bucket_exists, self.bucket_name
-            )
+            bucket_exists = await loop.run_in_executor(None, self.minio_client.bucket_exists, self.bucket_name)
 
             if not bucket_exists:
-                await loop.run_in_executor(
-                    None, self.minio_client.make_bucket, self.bucket_name
-                )
+                await loop.run_in_executor(None, self.minio_client.make_bucket, self.bucket_name)
                 logger.info("Created MinIO bucket", bucket=self.bucket_name)
 
         except S3Error as e:
-            logger.error(
-                "Failed to ensure bucket exists", error=str(e), bucket=self.bucket_name
-            )
+            logger.error("Failed to ensure bucket exists", error=str(e), bucket=self.bucket_name)
             raise
 
-    def _get_file_key(
-        self, session_id: str, file_id: str, file_type: str = "uploads"
-    ) -> str:
+    def _get_file_key(self, session_id: str, file_id: str, file_type: str = "uploads") -> str:
         """Generate S3 object key for a file."""
         return f"sessions/{session_id}/{file_type}/{file_id}"
 
@@ -71,9 +61,7 @@ class FileService(FileServiceInterface):
         """Generate Redis key for session file list."""
         return f"session_files:{session_id}"
 
-    async def _store_file_metadata(
-        self, session_id: str, file_id: str, metadata: Dict[str, Any]
-    ) -> None:
+    async def _store_file_metadata(self, session_id: str, file_id: str, metadata: dict[str, Any]) -> None:
         """Store file metadata in Redis."""
         try:
             metadata_key = self._get_file_metadata_key(session_id, file_id)
@@ -99,9 +87,7 @@ class FileService(FileServiceInterface):
             )
             raise
 
-    async def _get_file_metadata(
-        self, session_id: str, file_id: str
-    ) -> Optional[Dict[str, Any]]:
+    async def _get_file_metadata(self, session_id: str, file_id: str) -> dict[str, Any] | None:
         """Retrieve file metadata from Redis."""
         try:
             metadata_key = self._get_file_metadata_key(session_id, file_id)
@@ -148,9 +134,7 @@ class FileService(FileServiceInterface):
             )
             raise
 
-    async def upload_file(
-        self, session_id: str, request: FileUploadRequest
-    ) -> Tuple[str, str]:
+    async def upload_file(self, session_id: str, request: FileUploadRequest) -> tuple[str, str]:
         """Generate upload URL for a file. Returns (file_id, upload_url)."""
         await self._ensure_bucket_exists()
 
@@ -178,7 +162,7 @@ class FileService(FileServiceInterface):
                 "content_type": request.content_type or "application/octet-stream",
                 "object_key": object_key,
                 "session_id": session_id,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "size": 0,  # Will be updated when upload is confirmed
                 "path": f"/{request.filename}",
             }
@@ -195,9 +179,7 @@ class FileService(FileServiceInterface):
             return file_id, upload_url
 
         except S3Error as e:
-            logger.error(
-                "Failed to generate upload URL", error=str(e), session_id=session_id
-            )
+            logger.error("Failed to generate upload URL", error=str(e), session_id=session_id)
             raise
 
     async def confirm_upload(self, session_id: str, file_id: str) -> FileInfo:
@@ -211,9 +193,7 @@ class FileService(FileServiceInterface):
         try:
             # Get object info to confirm upload and get size
             loop = asyncio.get_event_loop()
-            stat = await loop.run_in_executor(
-                None, self.minio_client.stat_object, self.bucket_name, object_key
-            )
+            stat = await loop.run_in_executor(None, self.minio_client.stat_object, self.bucket_name, object_key)
 
             # Update metadata with actual file size
             metadata["size"] = stat.size
@@ -244,7 +224,7 @@ class FileService(FileServiceInterface):
             )
             raise
 
-    async def get_file_info(self, session_id: str, file_id: str) -> Optional[FileInfo]:
+    async def get_file_info(self, session_id: str, file_id: str) -> FileInfo | None:
         """Get file information."""
         metadata = await self._get_file_metadata(session_id, file_id)
         if not metadata:
@@ -259,7 +239,7 @@ class FileService(FileServiceInterface):
             path=metadata["path"],
         )
 
-    async def list_files(self, session_id: str) -> List[FileInfo]:
+    async def list_files(self, session_id: str) -> list[FileInfo]:
         """List all files in a session."""
         try:
             session_files_key = self._get_session_files_key(session_id)
@@ -280,7 +260,7 @@ class FileService(FileServiceInterface):
             logger.error("Failed to list files", error=str(e), session_id=session_id)
             return []
 
-    async def download_file(self, session_id: str, file_id: str) -> Optional[str]:
+    async def download_file(self, session_id: str, file_id: str) -> str | None:
         """Generate download URL for a file."""
         metadata = await self._get_file_metadata(session_id, file_id)
         if not metadata:
@@ -321,9 +301,7 @@ class FileService(FileServiceInterface):
         try:
             # Delete from MinIO
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None, self.minio_client.remove_object, self.bucket_name, object_key
-            )
+            await loop.run_in_executor(None, self.minio_client.remove_object, self.bucket_name, object_key)
 
             # Delete metadata from Redis
             await self._delete_file_metadata(session_id, file_id)
@@ -368,9 +346,7 @@ class FileService(FileServiceInterface):
                         objects = await loop.run_in_executor(
                             None,
                             lambda: list(
-                                self.minio_client.list_objects(
-                                    self.bucket_name, prefix=prefix, recursive=True
-                                )
+                                self.minio_client.list_objects(self.bucket_name, prefix=prefix, recursive=True)
                             ),
                         )
                         for obj in objects:
@@ -396,14 +372,10 @@ class FileService(FileServiceInterface):
             return deleted_count
 
         except Exception as e:
-            logger.error(
-                "Failed to cleanup session files", error=str(e), session_id=session_id
-            )
+            logger.error("Failed to cleanup session files", error=str(e), session_id=session_id)
             return 0
 
-    async def store_execution_output_file(
-        self, session_id: str, filename: str, content: bytes
-    ) -> str:
+    async def store_execution_output_file(self, session_id: str, filename: str, content: bytes) -> str:
         """Store a file generated during code execution."""
         await self._ensure_bucket_exists()
 
@@ -437,7 +409,7 @@ class FileService(FileServiceInterface):
                 "content_type": "application/octet-stream",
                 "object_key": object_key,
                 "session_id": session_id,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "size": len(content),
                 "path": f"/outputs/{filename}",
                 "type": "output",  # Mark as execution output
@@ -464,7 +436,7 @@ class FileService(FileServiceInterface):
             )
             raise
 
-    async def get_file_content(self, session_id: str, file_id: str) -> Optional[bytes]:
+    async def get_file_content(self, session_id: str, file_id: str) -> bytes | None:
         """Get file content directly (for internal use)."""
         metadata = await self._get_file_metadata(session_id, file_id)
         if not metadata:
@@ -475,9 +447,7 @@ class FileService(FileServiceInterface):
         try:
             # Get object content
             loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None, self.minio_client.get_object, self.bucket_name, object_key
-            )
+            response = await loop.run_in_executor(None, self.minio_client.get_object, self.bucket_name, object_key)
 
             content = response.read()
             response.close()
@@ -499,7 +469,7 @@ class FileService(FileServiceInterface):
         session_id: str,
         filename: str,
         content: bytes,
-        content_type: Optional[str] = None,
+        content_type: str | None = None,
     ) -> str:
         """Store an uploaded file directly."""
         await self._ensure_bucket_exists()
@@ -534,7 +504,7 @@ class FileService(FileServiceInterface):
                 "content_type": content_type or "application/octet-stream",
                 "object_key": object_key,
                 "session_id": session_id,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "size": len(content),
                 "path": f"/{filename}",
                 "type": "upload",  # Mark as uploaded file
@@ -584,21 +554,17 @@ class FileService(FileServiceInterface):
             # List all objects under the sessions/ prefix
             objects = await loop.run_in_executor(
                 None,
-                lambda: list(
-                    self.minio_client.list_objects(
-                        self.bucket_name, prefix="sessions/", recursive=True
-                    )
-                ),
+                lambda: list(self.minio_client.list_objects(self.bucket_name, prefix="sessions/", recursive=True)),
             )
             deleted_count = 0
 
             # Cache existence checks to minimize Redis round-trips for unknown session IDs
-            checked_missing_sessions: Dict[str, bool] = {}
+            checked_missing_sessions: dict[str, bool] = {}
 
             # Determine age cutoff based on TTL (older than TTL are safe to remove)
             ttl_minutes = settings.get_session_ttl_minutes()
             ttl_seconds = ttl_minutes * 60
-            now_ts = datetime.utcnow().timestamp()
+            now_ts = datetime.now(UTC).timestamp()
 
             for obj in objects:
                 if deleted_count >= batch_limit:
@@ -622,11 +588,7 @@ class FileService(FileServiceInterface):
                     if last_modified is None:
                         continue
                     # last_modified may be datetime; convert to timestamp
-                    obj_ts = (
-                        last_modified.timestamp()
-                        if hasattr(last_modified, "timestamp")
-                        else None
-                    )
+                    obj_ts = last_modified.timestamp() if hasattr(last_modified, "timestamp") else None
                     if obj_ts is None:
                         continue
                     if (now_ts - obj_ts) < ttl_seconds:
@@ -647,9 +609,7 @@ class FileService(FileServiceInterface):
                 # Double-check via Redis existence in case index is stale
                 if object_session_id not in checked_missing_sessions:
                     try:
-                        exists = await self.redis_client.exists(
-                            f"sessions:{object_session_id}"
-                        )
+                        exists = await self.redis_client.exists(f"sessions:{object_session_id}")
                         checked_missing_sessions[object_session_id] = bool(exists)
                     except Exception as e:
                         logger.error(
