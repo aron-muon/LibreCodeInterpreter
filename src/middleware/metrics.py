@@ -9,10 +9,10 @@ import structlog
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# Local application imports
-from ..services.metrics import metrics_collector, APIMetrics
 from ..config import settings
 
+# Local application imports
+from ..services.metrics import APIMetrics, metrics_collector
 
 logger = structlog.get_logger(__name__)
 

@@ -79,9 +79,7 @@ def setup_file_logging() -> None:
     if settings.log_format.lower() == "json":
         formatter = logging.Formatter("%(message)s")
     else:
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     file_handler.setFormatter(formatter)
     file_handler.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
@@ -125,7 +123,7 @@ def get_security_logger() -> structlog.BoundLogger:
     return structlog.get_logger("security")
 
 
-def log_security_event(event_type: str, details: Dict[str, Any]) -> None:
+def log_security_event(event_type: str, details: dict[str, Any]) -> None:
     """Log a security event with structured data."""
     security_logger = get_security_logger()
     security_logger.warning("Security event", event_type=event_type, **details)

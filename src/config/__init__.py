@@ -26,24 +26,24 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Import grouped configurations
 from .api import APIConfig
-from .redis import RedisConfig
-from .minio import MinIOConfig
-from .security import SecurityConfig
-from .resources import ResourcesConfig
-from .logging import LoggingConfig
 from .kubernetes import KubernetesConfig
 from .languages import (
     LANGUAGES,
     LanguageConfig,
+    get_execution_command,
+    get_file_extension,
+    get_image_for_language,
     get_language,
     get_supported_languages,
-    is_supported_language,
-    get_image_for_language,
     get_user_id_for_language,
-    get_execution_command,
+    is_supported_language,
     uses_stdin,
-    get_file_extension,
 )
+from .logging import LoggingConfig
+from .minio import MinIOConfig
+from .redis import RedisConfig
+from .resources import ResourcesConfig
+from .security import SecurityConfig
 
 
 class Settings(BaseSettings):
@@ -54,9 +54,7 @@ class Settings(BaseSettings):
     2. Flat access for backward compatibility (settings.api_host)
     """
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 
     # ========================================================================
     # BACKWARD COMPATIBILITY - All original flat fields preserved
@@ -71,40 +69,38 @@ class Settings(BaseSettings):
     # SSL/HTTPS Configuration
     enable_https: bool = Field(default=False)
     https_port: int = Field(default=443, ge=1, le=65535)
-    ssl_cert_file: Optional[str] = Field(default=None)
-    ssl_key_file: Optional[str] = Field(default=None)
+    ssl_cert_file: str | None = Field(default=None)
+    ssl_key_file: str | None = Field(default=None)
     ssl_redirect: bool = Field(default=False)
-    ssl_ca_certs: Optional[str] = Field(default=None)
+    ssl_ca_certs: str | None = Field(default=None)
 
     # Authentication Configuration
     api_key: str = Field(default="test-api-key", min_length=16)
-    api_keys: Optional[str] = Field(default=None)
+    api_keys: str | None = Field(default=None)
     api_key_header: str = Field(default="x-api-key")
     api_key_cache_ttl: int = Field(default=300, ge=60)
 
     # API Key Management Configuration
-    master_api_key: Optional[str] = Field(
+    master_api_key: str | None = Field(
         default=None,
         description="Master API key for admin operations (CLI key management)",
     )
-    rate_limit_enabled: bool = Field(
-        default=True, description="Enable per-key rate limiting for Redis-managed keys"
-    )
+    rate_limit_enabled: bool = Field(default=True, description="Enable per-key rate limiting for Redis-managed keys")
 
     # Redis Configuration
     redis_host: str = Field(default="localhost")
     redis_port: int = Field(default=6379, ge=1, le=65535)
-    redis_password: Optional[str] = Field(default=None)
+    redis_password: str | None = Field(default=None)
     redis_db: int = Field(default=0, ge=0, le=15)
-    redis_url: Optional[str] = Field(default=None)
+    redis_url: str | None = Field(default=None)
     redis_max_connections: int = Field(default=20, ge=1)
     redis_socket_timeout: int = Field(default=5, ge=1)
     redis_socket_connect_timeout: int = Field(default=5, ge=1)
 
     # MinIO/S3 Configuration
     minio_endpoint: str = Field(default="localhost:9000")
-    minio_access_key: Optional[str] = Field(default=None)
-    minio_secret_key: Optional[str] = Field(default=None)
+    minio_access_key: str | None = Field(default=None)
+    minio_secret_key: str | None = Field(default=None)
     minio_secure: bool = Field(default=False)
     minio_bucket: str = Field(default="kubecoderun-files")
     minio_region: str = Field(default="us-east-1")
@@ -126,22 +122,12 @@ class Settings(BaseSettings):
         default="aronmuon/kubecoderun-sidecar:latest",
         description="Sidecar container image for pod communication",
     )
-    k8s_sidecar_port: int = Field(
-        default=8080, ge=1, le=65535, description="Sidecar HTTP API port"
-    )
+    k8s_sidecar_port: int = Field(default=8080, ge=1, le=65535, description="Sidecar HTTP API port")
     k8s_cpu_limit: str = Field(default="1", description="CPU limit for execution pods")
-    k8s_memory_limit: str = Field(
-        default="512Mi", description="Memory limit for execution pods"
-    )
-    k8s_cpu_request: str = Field(
-        default="100m", description="CPU request for execution pods"
-    )
-    k8s_memory_request: str = Field(
-        default="128Mi", description="Memory request for execution pods"
-    )
-    k8s_run_as_user: int = Field(
-        default=1000, ge=1, description="UID to run containers as"
-    )
+    k8s_memory_limit: str = Field(default="512Mi", description="Memory limit for execution pods")
+    k8s_cpu_request: str = Field(default="100m", description="CPU request for execution pods")
+    k8s_memory_request: str = Field(default="128Mi", description="Memory request for execution pods")
+    k8s_run_as_user: int = Field(default=1000, ge=1, description="UID to run containers as")
     k8s_job_ttl_seconds: int = Field(
         default=60,
         ge=10,
@@ -158,9 +144,7 @@ class Settings(BaseSettings):
         default="aronmuon/kubecoderun",
         description="Container image registry prefix (images: {registry}-{language}:{tag})",
     )
-    k8s_image_tag: str = Field(
-        default="latest", description="Container image tag for execution pods"
-    )
+    k8s_image_tag: str = Field(default="latest", description="Container image tag for execution pods")
     k8s_image_pull_policy: str = Field(
         default="Always",
         description="Image pull policy for execution pods (Always, IfNotPresent, Never)",
@@ -175,9 +159,7 @@ class Settings(BaseSettings):
         le=16.0,
         description="Maximum CPU cores available to execution containers",
     )
-    max_cpu_quota: int = Field(
-        default=50000, ge=10000, le=100000
-    )  # Deprecated, use max_cpus
+    max_cpu_quota: int = Field(default=50000, ge=10000, le=100000)  # Deprecated, use max_cpus
     max_pids: int = Field(
         default=512,
         ge=64,
@@ -251,7 +233,7 @@ class Settings(BaseSettings):
         default="kubecoderun-wan",
         description="Network name for WAN-access pods",
     )
-    wan_dns_servers: List[str] = Field(
+    wan_dns_servers: list[str] = Field(
         default_factory=lambda: ["8.8.8.8", "1.1.1.1", "8.8.4.4"],
         description="Public DNS servers for WAN-access pods",
     )
@@ -276,9 +258,7 @@ class Settings(BaseSettings):
         le=86400,
         description="TTL for persisted Python session state in Redis (seconds). Default: 2 hours",
     )
-    state_max_size_mb: int = Field(
-        default=50, ge=1, le=200, description="Maximum size for serialized state in MB"
-    )
+    state_max_size_mb: int = Field(default=50, ge=1, le=200, description="Maximum size for serialized state in MB")
     state_capture_on_error: bool = Field(
         default=False, description="Capture and persist state even when execution fails"
     )
@@ -357,7 +337,7 @@ class Settings(BaseSettings):
     )
 
     # Security Configuration
-    allowed_file_extensions: List[str] = Field(
+    allowed_file_extensions: list[str] = Field(
         default_factory=lambda: [
             ".txt",
             ".py",
@@ -388,14 +368,12 @@ class Settings(BaseSettings):
             ".makefile",
         ]
     )
-    blocked_file_patterns: List[str] = Field(
-        default_factory=lambda: ["*.exe", "*.dll", "*.so", "*.dylib", "*.bin"]
-    )
+    blocked_file_patterns: list[str] = Field(default_factory=lambda: ["*.exe", "*.dll", "*.so", "*.dylib", "*.bin"])
     enable_network_isolation: bool = Field(default=True)
     enable_filesystem_isolation: bool = Field(default=True)
 
     # Language Configuration - now uses LANGUAGES from languages.py
-    supported_languages: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    supported_languages: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -424,7 +402,7 @@ class Settings(BaseSettings):
     # Logging Configuration
     log_level: str = Field(default="INFO")
     log_format: str = Field(default="json")
-    log_file: Optional[str] = Field(default=None)
+    log_file: str | None = Field(default=None)
     log_max_size_mb: int = Field(default=100, ge=1)
     log_backup_count: int = Field(default=5, ge=1)
     enable_access_logs: bool = Field(default=True)
@@ -436,7 +414,7 @@ class Settings(BaseSettings):
 
     # Development Configuration
     enable_cors: bool = Field(default=False)
-    cors_origins: List[str] = Field(default_factory=list)
+    cors_origins: list[str] = Field(default_factory=list)
     enable_docs: bool = Field(default=True)
 
     # ========================================================================
@@ -454,9 +432,7 @@ class Settings(BaseSettings):
     def validate_minio_endpoint(cls, v):
         """Ensure MinIO endpoint doesn't include protocol."""
         if v.startswith(("http://", "https://")):
-            raise ValueError(
-                "MinIO endpoint should not include protocol (use minio_secure instead)"
-            )
+            raise ValueError("MinIO endpoint should not include protocol (use minio_secure instead)")
         return v
 
     # ========================================================================
@@ -586,6 +562,7 @@ class Settings(BaseSettings):
         Returns list of PoolConfig for all configured languages.
         """
         import os
+
         from ..services.kubernetes.models import PoolConfig
 
         configs = []
@@ -623,9 +600,7 @@ class Settings(BaseSettings):
 
         for lang, pool_size in pool_sizes.items():
             # Use explicit image override if set, otherwise auto-generate
-            image = image_overrides.get(lang) or self.kubernetes.get_image_for_language(
-                lang
-            )
+            image = image_overrides.get(lang) or self.kubernetes.get_image_for_language(lang)
             configs.append(
                 PoolConfig(
                     language=lang,
@@ -659,7 +634,7 @@ class Settings(BaseSettings):
         password_part = f":{self.redis_password}@" if self.redis_password else ""
         return f"redis://{password_part}{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
-    def get_valid_api_keys(self) -> List[str]:
+    def get_valid_api_keys(self) -> list[str]:
         """Get all valid API keys including the primary key."""
         keys = [self.api_key]
         if self.api_keys:
@@ -669,7 +644,7 @@ class Settings(BaseSettings):
                 keys.extend([k.strip() for k in self.api_keys.split(",") if k.strip()])
         return list(set(keys))
 
-    def get_language_config(self, language: str) -> Dict[str, Any]:
+    def get_language_config(self, language: str) -> dict[str, Any]:
         """Get configuration for a specific language."""
         return self.supported_languages.get(language, {})
 
@@ -707,10 +682,7 @@ class Settings(BaseSettings):
 
         import fnmatch
 
-        return not any(
-            fnmatch.fnmatch(filename.lower(), pattern.lower())
-            for pattern in self.blocked_file_patterns
-        )
+        return not any(fnmatch.fnmatch(filename.lower(), pattern.lower()) for pattern in self.blocked_file_patterns)
 
 
 # Global settings instance

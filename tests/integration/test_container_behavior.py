@@ -5,15 +5,16 @@ This test suite documents and verifies container lifecycle and execution behavio
 to ensure 100% compatibility after architectural refactoring.
 """
 
+from datetime import UTC, datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone, timedelta
 
 from src.main import app
-from src.models import CodeExecution, ExecutionStatus, ExecutionOutput, OutputType
-from src.models.session import Session, SessionStatus
+from src.models import CodeExecution, ExecutionOutput, ExecutionStatus, OutputType
 from src.models.files import FileInfo
+from src.models.session import Session, SessionStatus
 
 
 @pytest.fixture
@@ -33,9 +34,9 @@ def create_session(session_id: str) -> Session:
     return Session(
         session_id=session_id,
         status=SessionStatus.ACTIVE,
-        created_at=datetime.now(timezone.utc),
-        last_activity=datetime.now(timezone.utc),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+        created_at=datetime.now(UTC),
+        last_activity=datetime.now(UTC),
+        expires_at=datetime.now(UTC) + timedelta(hours=24),
         metadata={},
     )
 
@@ -64,7 +65,7 @@ class TestContainerLifecycle:
                 ExecutionOutput(
                     type=OutputType.STDOUT,
                     content="test",
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                 )
             ],
         )
@@ -86,9 +87,9 @@ class TestContainerLifecycle:
         mock_file_service.list_files.return_value = []
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
         app.dependency_overrides[get_session_service] = lambda: mock_session_service
@@ -142,9 +143,9 @@ class TestContainerLifecycle:
         mock_file_service.list_files.return_value = []
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
         app.dependency_overrides[get_session_service] = lambda: mock_session_service
@@ -194,17 +195,13 @@ class TestLanguageExecution:
         self.mock_file_service.list_files.return_value = []
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
-        app.dependency_overrides[get_session_service] = (
-            lambda: self.mock_session_service
-        )
-        app.dependency_overrides[get_execution_service] = (
-            lambda: self.mock_execution_service
-        )
+        app.dependency_overrides[get_session_service] = lambda: self.mock_session_service
+        app.dependency_overrides[get_execution_service] = lambda: self.mock_execution_service
         app.dependency_overrides[get_file_service] = lambda: self.mock_file_service
 
         yield
@@ -226,7 +223,7 @@ class TestLanguageExecution:
                     ExecutionOutput(
                         type=OutputType.STDOUT,
                         content=f"Hello {language}",
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                 ],
             ),
@@ -266,7 +263,7 @@ class TestLanguageExecution:
                     ExecutionOutput(
                         type=OutputType.STDOUT,
                         content=f"Hello {language}",
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                 ],
             ),
@@ -318,17 +315,13 @@ class TestExecutionStatus:
         self.mock_file_service.list_files.return_value = []
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
-        app.dependency_overrides[get_session_service] = (
-            lambda: self.mock_session_service
-        )
-        app.dependency_overrides[get_execution_service] = (
-            lambda: self.mock_execution_service
-        )
+        app.dependency_overrides[get_session_service] = lambda: self.mock_session_service
+        app.dependency_overrides[get_execution_service] = lambda: self.mock_execution_service
         app.dependency_overrides[get_file_service] = lambda: self.mock_file_service
 
         yield
@@ -349,7 +342,7 @@ class TestExecutionStatus:
                     ExecutionOutput(
                         type=OutputType.STDOUT,
                         content="ok",
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                 ],
             ),
@@ -359,9 +352,7 @@ class TestExecutionStatus:
             "pool_hit",
         )
 
-        response = client.post(
-            "/exec", json={"code": "print('ok')", "lang": "py"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "print('ok')", "lang": "py"}, headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -382,7 +373,7 @@ class TestExecutionStatus:
                     ExecutionOutput(
                         type=OutputType.STDERR,
                         content="Exception: fail",
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                 ],
             ),
@@ -475,17 +466,13 @@ class TestFileGeneration:
         self.mock_file_service = AsyncMock()
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
-        app.dependency_overrides[get_session_service] = (
-            lambda: self.mock_session_service
-        )
-        app.dependency_overrides[get_execution_service] = (
-            lambda: self.mock_execution_service
-        )
+        app.dependency_overrides[get_session_service] = lambda: self.mock_session_service
+        app.dependency_overrides[get_execution_service] = lambda: self.mock_execution_service
         app.dependency_overrides[get_file_service] = lambda: self.mock_file_service
 
         yield
@@ -508,7 +495,7 @@ class TestFileGeneration:
                         content="/mnt/data/output.txt",
                         mime_type="text/plain",
                         size=100,
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                 ],
             ),
@@ -561,14 +548,14 @@ class TestFileGeneration:
                         content="/mnt/data/file1.txt",
                         mime_type="text/plain",
                         size=50,
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     ),
                     ExecutionOutput(
                         type=OutputType.FILE,
                         content="/mnt/data/file2.csv",
                         mime_type="text/csv",
                         size=100,
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     ),
                 ],
             ),
@@ -627,7 +614,7 @@ class TestFileGeneration:
                     ExecutionOutput(
                         type=OutputType.STDOUT,
                         content="output",
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                 ],
             ),
@@ -639,9 +626,7 @@ class TestFileGeneration:
 
         self.mock_file_service.list_files.return_value = []
 
-        response = client.post(
-            "/exec", json={"code": "print('hello')", "lang": "py"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "print('hello')", "lang": "py"}, headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -670,17 +655,13 @@ class TestOutputHandling:
         self.mock_file_service.list_files.return_value = []
 
         from src.dependencies.services import (
-            get_session_service,
             get_execution_service,
             get_file_service,
+            get_session_service,
         )
 
-        app.dependency_overrides[get_session_service] = (
-            lambda: self.mock_session_service
-        )
-        app.dependency_overrides[get_execution_service] = (
-            lambda: self.mock_execution_service
-        )
+        app.dependency_overrides[get_session_service] = lambda: self.mock_session_service
+        app.dependency_overrides[get_execution_service] = lambda: self.mock_execution_service
         app.dependency_overrides[get_file_service] = lambda: self.mock_file_service
 
         yield
@@ -703,7 +684,7 @@ class TestOutputHandling:
                     ExecutionOutput(
                         type=OutputType.STDOUT,
                         content=large_output,
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                 ],
             ),
@@ -737,12 +718,12 @@ class TestOutputHandling:
                     ExecutionOutput(
                         type=OutputType.STDOUT,
                         content="stdout content",
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     ),
                     ExecutionOutput(
                         type=OutputType.STDERR,
                         content="stderr content",
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     ),
                 ],
             ),
@@ -752,9 +733,7 @@ class TestOutputHandling:
             "pool_hit",
         )
 
-        response = client.post(
-            "/exec", json={"code": "print and warn", "lang": "py"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "print and warn", "lang": "py"}, headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -778,7 +757,7 @@ class TestOutputHandling:
                     ExecutionOutput(
                         type=OutputType.STDOUT,
                         content=unicode_output,
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                 ],
             ),

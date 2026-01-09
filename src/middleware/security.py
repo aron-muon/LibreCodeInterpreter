@@ -6,13 +6,12 @@ from typing import Callable, Optional
 
 # Third-party imports
 import structlog
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
 # Local application imports
 from ..config import settings
 from ..services.auth import get_auth_service
-
 
 logger = structlog.get_logger(__name__)
 
@@ -66,9 +65,7 @@ class SecurityMiddleware:
                         b"img-src 'self' data: fastapi.tiangolo.com; "
                         b"frame-src 'self';"
                     )
-                elif path.startswith("/admin-dashboard") or path.startswith(
-                    "/api/v1/admin"
-                ):
+                elif path.startswith("/admin-dashboard") or path.startswith("/api/v1/admin"):
                     security_headers[b"content-security-policy"] = (
                         b"default-src 'self'; "
                         b"script-src 'self' 'unsafe-inline' 'unsafe-eval' unpkg.com cdn.jsdelivr.net; "
@@ -137,9 +134,7 @@ class SecurityMiddleware:
             ]
 
             if not any(allowed in content_type for allowed in allowed_types):
-                raise HTTPException(
-                    status_code=415, detail=f"Unsupported content type: {content_type}"
-                )
+                raise HTTPException(status_code=415, detail=f"Unsupported content type: {content_type}")
 
     def _should_skip_auth(self, request: Request) -> bool:
         """Check if authentication should be skipped."""
@@ -218,11 +213,9 @@ class SecurityMiddleware:
 
         # Record usage for all keys (both managed and env keys)
         if result.key_hash:
-            await auth_service.record_usage(
-                result.key_hash, is_env_key=result.is_env_key
-            )
+            await auth_service.record_usage(result.key_hash, is_env_key=result.is_env_key)
 
-    def _extract_api_key(self, request: Request) -> Optional[str]:
+    def _extract_api_key(self, request: Request) -> str | None:
         """Extract API key from request headers."""
         # Check x-api-key header first
         api_key = request.headers.get("x-api-key")

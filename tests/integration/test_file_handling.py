@@ -4,11 +4,12 @@ These tests verify that generated files are correctly retrieved from containers
 when container pooling is enabled.
 """
 
-import pytest
-import aiohttp
-import ssl
 import os
 import socket
+import ssl
+
+import aiohttp
+import pytest
 
 # Test configuration
 API_URL = os.getenv("TEST_API_URL", "https://localhost")
@@ -80,9 +81,7 @@ print('Chart saved')
                 "entity_id": "test-file-gen-png",
             }
 
-            async with session.post(
-                f"{API_URL}/exec", json=payload, headers=headers, ssl=ssl_context
-            ) as resp:
+            async with session.post(f"{API_URL}/exec", json=payload, headers=headers, ssl=ssl_context) as resp:
                 assert resp.status == 200
                 result = await resp.json()
 
@@ -99,9 +98,7 @@ print('Chart saved')
 
                 # Download the file
                 download_url = f"{API_URL}/download/{session_id}/{file_id}"
-                async with session.get(
-                    download_url, headers=headers, ssl=ssl_context
-                ) as dl_resp:
+                async with session.get(download_url, headers=headers, ssl=ssl_context) as dl_resp:
                     assert dl_resp.status == 200
                     content = await dl_resp.read()
 
@@ -133,9 +130,7 @@ for name in ['alpha', 'beta', 'gamma']:
                 "entity_id": "test-multi-files",
             }
 
-            async with session.post(
-                f"{API_URL}/exec", json=payload, headers=headers, ssl=ssl_context
-            ) as resp:
+            async with session.post(f"{API_URL}/exec", json=payload, headers=headers, ssl=ssl_context) as resp:
                 assert resp.status == 200
                 result = await resp.json()
 
@@ -153,18 +148,12 @@ for name in ['alpha', 'beta', 'gamma']:
                 # Download each file and verify
                 for file_info in files:
                     download_url = f"{API_URL}/download/{session_id}/{file_info['id']}"
-                    async with session.get(
-                        download_url, headers=headers, ssl=ssl_context
-                    ) as dl_resp:
+                    async with session.get(download_url, headers=headers, ssl=ssl_context) as dl_resp:
                         assert dl_resp.status == 200
                         content = await dl_resp.read()
 
-                        assert (
-                            len(content) > 1000
-                        ), f"File {file_info['name']} too small: {len(content)} bytes"
-                        assert (
-                            content[:4] == b"\x89PNG"
-                        ), f"File {file_info['name']} is not a valid PNG"
+                        assert len(content) > 1000, f"File {file_info['name']} too small: {len(content)} bytes"
+                        assert content[:4] == b"\x89PNG", f"File {file_info['name']} is not a valid PNG"
 
     @pytest.mark.asyncio
     async def test_text_file_generation(self, ssl_context, headers):
@@ -183,9 +172,7 @@ print('Text file created')
                 "entity_id": "test-text-file",
             }
 
-            async with session.post(
-                f"{API_URL}/exec", json=payload, headers=headers, ssl=ssl_context
-            ) as resp:
+            async with session.post(f"{API_URL}/exec", json=payload, headers=headers, ssl=ssl_context) as resp:
                 assert resp.status == 200
                 result = await resp.json()
 
@@ -193,18 +180,14 @@ print('Text file created')
                 assert len(files) >= 1, "Expected at least one generated file"
 
                 # Find the text file
-                txt_file = next(
-                    (f for f in files if f.get("name") == "output.txt"), None
-                )
+                txt_file = next((f for f in files if f.get("name") == "output.txt"), None)
                 assert txt_file is not None, "output.txt not found in generated files"
 
                 session_id = result.get("session_id")
 
                 # Download and verify content
                 download_url = f"{API_URL}/download/{session_id}/{txt_file['id']}"
-                async with session.get(
-                    download_url, headers=headers, ssl=ssl_context
-                ) as dl_resp:
+                async with session.get(download_url, headers=headers, ssl=ssl_context) as dl_resp:
                     assert dl_resp.status == 200
                     content = await dl_resp.text()
 
@@ -232,25 +215,19 @@ print(f'Created CSV with {len(df)} rows')
                 "entity_id": "test-csv-file",
             }
 
-            async with session.post(
-                f"{API_URL}/exec", json=payload, headers=headers, ssl=ssl_context
-            ) as resp:
+            async with session.post(f"{API_URL}/exec", json=payload, headers=headers, ssl=ssl_context) as resp:
                 assert resp.status == 200
                 result = await resp.json()
 
                 files = result.get("files", [])
-                csv_file = next(
-                    (f for f in files if f.get("name") == "people.csv"), None
-                )
+                csv_file = next((f for f in files if f.get("name") == "people.csv"), None)
                 assert csv_file is not None, "people.csv not found"
 
                 session_id = result.get("session_id")
 
                 # Download and verify
                 download_url = f"{API_URL}/download/{session_id}/{csv_file['id']}"
-                async with session.get(
-                    download_url, headers=headers, ssl=ssl_context
-                ) as dl_resp:
+                async with session.get(download_url, headers=headers, ssl=ssl_context) as dl_resp:
                     assert dl_resp.status == 200
                     content = await dl_resp.text()
 
@@ -285,9 +262,7 @@ print('Pie chart created')
                 "entity_id": entity_id,
             }
 
-            async with session.post(
-                f"{API_URL}/exec", json=payload, headers=headers, ssl=ssl_context
-            ) as resp:
+            async with session.post(f"{API_URL}/exec", json=payload, headers=headers, ssl=ssl_context) as resp:
                 assert resp.status == 200
                 result = await resp.json()
 
@@ -301,16 +276,12 @@ print('Pie chart created')
 
                 # Download and verify it's a real PNG
                 download_url = f"{API_URL}/download/{session_id}/{pie_file['id']}"
-                async with session.get(
-                    download_url, headers=headers, ssl=ssl_context
-                ) as dl_resp:
+                async with session.get(download_url, headers=headers, ssl=ssl_context) as dl_resp:
                     assert dl_resp.status == 200
                     content = await dl_resp.read()
 
                     # Should be a substantial PNG file, not a stub
-                    assert (
-                        len(content) > 5000
-                    ), f"File appears truncated: {len(content)} bytes"
+                    assert len(content) > 5000, f"File appears truncated: {len(content)} bytes"
                     assert content[:8] == b"\x89PNG\r\n\x1a\n", "Invalid PNG"
 
     @pytest.mark.asyncio
@@ -339,32 +310,24 @@ print('Large plot created')
                 "entity_id": "test-large-file",
             }
 
-            async with session.post(
-                f"{API_URL}/exec", json=payload, headers=headers, ssl=ssl_context
-            ) as resp:
+            async with session.post(f"{API_URL}/exec", json=payload, headers=headers, ssl=ssl_context) as resp:
                 assert resp.status == 200
                 result = await resp.json()
 
                 files = result.get("files", [])
-                large_file = next(
-                    (f for f in files if f.get("name") == "large_plot.png"), None
-                )
+                large_file = next((f for f in files if f.get("name") == "large_plot.png"), None)
                 assert large_file is not None, "large_plot.png not found"
 
                 session_id = result.get("session_id")
 
                 # Download and verify
                 download_url = f"{API_URL}/download/{session_id}/{large_file['id']}"
-                async with session.get(
-                    download_url, headers=headers, ssl=ssl_context
-                ) as dl_resp:
+                async with session.get(download_url, headers=headers, ssl=ssl_context) as dl_resp:
                     assert dl_resp.status == 200
                     content = await dl_resp.read()
 
                     # Large detailed plot should be > 50KB
-                    assert (
-                        len(content) > 50000
-                    ), f"Large file too small: {len(content)} bytes"
+                    assert len(content) > 50000, f"Large file too small: {len(content)} bytes"
                     assert content[:8] == b"\x89PNG\r\n\x1a\n", "Invalid PNG"
 
 
@@ -449,23 +412,17 @@ class TestUploadAnalyzeDownload:
                 "lang": "py",
                 "code": analysis_code,
                 "entity_id": entity_id,
-                "files": [
-                    {"id": file_id, "session_id": session_id, "name": "sales_data.csv"}
-                ],
+                "files": [{"id": file_id, "session_id": session_id, "name": "sales_data.csv"}],
             }
 
-            async with session.post(
-                f"{API_URL}/exec", json=exec_payload, headers=headers, ssl=ssl_context
-            ) as resp:
+            async with session.post(f"{API_URL}/exec", json=exec_payload, headers=headers, ssl=ssl_context) as resp:
                 assert resp.status == 200, f"Exec failed: {await resp.text()}"
                 exec_result = await resp.json()
 
                 # Verify execution succeeded
                 stdout = exec_result.get("stdout", "")
                 stderr = exec_result.get("stderr", "")
-                assert (
-                    "Sales Analysis Report" in stdout
-                ), f"Analysis failed. stdout: {stdout}, stderr: {stderr}"
+                assert "Sales Analysis Report" in stdout, f"Analysis failed. stdout: {stdout}, stderr: {stderr}"
 
                 # Find generated files
                 files = exec_result.get("files", [])
@@ -475,9 +432,7 @@ class TestUploadAnalyzeDownload:
                     (f for f in files if "analyzed_sales.csv" in f.get("name", "")),
                     None,
                 )
-                txt_output = next(
-                    (f for f in files if "sales_report.txt" in f.get("name", "")), None
-                )
+                txt_output = next((f for f in files if "sales_report.txt" in f.get("name", "")), None)
 
                 assert csv_output is not None, "analyzed_sales.csv not found in output"
                 assert txt_output is not None, "sales_report.txt not found in output"
@@ -487,25 +442,19 @@ class TestUploadAnalyzeDownload:
 
             # Step 3: Download and verify the analyzed CSV
             download_url = f"{API_URL}/download/{exec_session_id}/{csv_output['id']}"
-            async with session.get(
-                download_url, headers=upload_headers, ssl=ssl_context
-            ) as resp:
+            async with session.get(download_url, headers=upload_headers, ssl=ssl_context) as resp:
                 assert resp.status == 200, f"CSV download failed: {resp.status}"
                 csv_result = await resp.text()
 
                 # Verify the analysis added the total_value column
-                assert (
-                    "total_value" in csv_result
-                ), "Analysis column not found in output CSV"
+                assert "total_value" in csv_result, "Analysis column not found in output CSV"
                 assert "Widget A" in csv_result
                 # Widget A: 100 * 9.99 = 999.0
                 assert "999" in csv_result, "Calculated total_value not found"
 
             # Step 4: Download and verify the text report
             download_url = f"{API_URL}/download/{exec_session_id}/{txt_output['id']}"
-            async with session.get(
-                download_url, headers=upload_headers, ssl=ssl_context
-            ) as resp:
+            async with session.get(download_url, headers=upload_headers, ssl=ssl_context) as resp:
                 assert resp.status == 200, f"Report download failed: {resp.status}"
                 report_content = await resp.text()
 
@@ -555,9 +504,7 @@ print(f'Created test image: {img.shape}')
 
                 # Get the created image file
                 files = result.get("files", [])
-                input_image = next(
-                    (f for f in files if "test_input.png" in f.get("name", "")), None
-                )
+                input_image = next((f for f in files if "test_input.png" in f.get("name", "")), None)
                 assert input_image is not None, "Test image not created"
 
             # Step 2: Process the image (apply blur and edge detection)
@@ -596,25 +543,17 @@ print(f'Processed images saved. Edges shape: {edges.shape}')
                 ],
             }
 
-            async with session.post(
-                f"{API_URL}/exec", json=exec_payload, headers=headers, ssl=ssl_context
-            ) as resp:
+            async with session.post(f"{API_URL}/exec", json=exec_payload, headers=headers, ssl=ssl_context) as resp:
                 assert resp.status == 200, f"Processing failed: {await resp.text()}"
                 result = await resp.json()
 
                 stdout = result.get("stdout", "")
                 stderr = result.get("stderr", "")
-                assert (
-                    "Processed images saved" in stdout
-                ), f"Processing failed. stderr: {stderr}"
+                assert "Processed images saved" in stdout, f"Processing failed. stderr: {stderr}"
 
                 files = result.get("files", [])
-                blurred_file = next(
-                    (f for f in files if "blurred.png" in f.get("name", "")), None
-                )
-                edges_file = next(
-                    (f for f in files if "edges.png" in f.get("name", "")), None
-                )
+                blurred_file = next((f for f in files if "blurred.png" in f.get("name", "")), None)
+                edges_file = next((f for f in files if "edges.png" in f.get("name", "")), None)
 
                 assert blurred_file is not None, "blurred.png not found"
                 assert edges_file is not None, "edges.png not found"
@@ -624,9 +563,7 @@ print(f'Processed images saved. Edges shape: {edges.shape}')
 
             # Download blurred image
             download_url = f"{API_URL}/download/{session_id}/{blurred_file['id']}"
-            async with session.get(
-                download_url, headers=upload_headers, ssl=ssl_context
-            ) as resp:
+            async with session.get(download_url, headers=upload_headers, ssl=ssl_context) as resp:
                 assert resp.status == 200
                 content = await resp.read()
                 assert len(content) > 100, f"Blurred image too small: {len(content)}"
@@ -634,9 +571,7 @@ print(f'Processed images saved. Edges shape: {edges.shape}')
 
             # Download edges image
             download_url = f"{API_URL}/download/{session_id}/{edges_file['id']}"
-            async with session.get(
-                download_url, headers=upload_headers, ssl=ssl_context
-            ) as resp:
+            async with session.get(download_url, headers=upload_headers, ssl=ssl_context) as resp:
                 assert resp.status == 200
                 content = await resp.read()
                 assert len(content) > 100, f"Edges image too small: {len(content)}"
@@ -647,8 +582,8 @@ print(f'Processed images saved. Edges shape: {edges.shape}')
         """Test uploading JSON data, transforming it, and downloading the result."""
         connector = aiohttp.TCPConnector(ssl=ssl_context)
         async with aiohttp.ClientSession(connector=connector) as session:
-            import time
             import json
+            import time
 
             entity_id = f"test-json-transform-{int(time.time())}"
 
@@ -726,21 +661,15 @@ print(f'Processed images saved. Edges shape: {edges.shape}')
                 "lang": "py",
                 "code": transform_code,
                 "entity_id": entity_id,
-                "files": [
-                    {"id": file_id, "session_id": session_id, "name": "users.json"}
-                ],
+                "files": [{"id": file_id, "session_id": session_id, "name": "users.json"}],
             }
 
-            async with session.post(
-                f"{API_URL}/exec", json=exec_payload, headers=headers, ssl=ssl_context
-            ) as resp:
+            async with session.post(f"{API_URL}/exec", json=exec_payload, headers=headers, ssl=ssl_context) as resp:
                 assert resp.status == 200
                 result = await resp.json()
 
                 files = result.get("files", [])
-                json_output = next(
-                    (f for f in files if "analysis.json" in f.get("name", "")), None
-                )
+                json_output = next((f for f in files if "analysis.json" in f.get("name", "")), None)
                 assert json_output is not None, "analysis.json not found"
 
                 # Use session_id from exec result for downloading
@@ -748,9 +677,7 @@ print(f'Processed images saved. Edges shape: {edges.shape}')
 
             # Step 3: Download and verify the result
             download_url = f"{API_URL}/download/{exec_session_id}/{json_output['id']}"
-            async with session.get(
-                download_url, headers=upload_headers, ssl=ssl_context
-            ) as resp:
+            async with session.get(download_url, headers=upload_headers, ssl=ssl_context) as resp:
                 assert resp.status == 200
                 content = await resp.text()
 

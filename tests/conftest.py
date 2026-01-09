@@ -1,15 +1,17 @@
 """Pytest configuration and shared fixtures."""
 
 import asyncio
+import os
+from datetime import UTC, datetime, timezone
+from typing import AsyncGenerator, Generator
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import AsyncGenerator, Generator
 import redis.asyncio as redis
 from minio import Minio
+
 from docker import DockerClient
-from datetime import datetime, timezone
-import os
 
 # Set test environment before importing config
 # These match the docker-compose infrastructure settings
@@ -22,11 +24,11 @@ os.environ["MINIO_SECRET_KEY"] = "minioadmin"
 os.environ["MINIO_SECURE"] = "false"
 
 from src.config import settings
-from src.services.session import SessionService
+from src.models import Session, SessionCreate, SessionStatus
+from src.services.auth import AuthenticationService
 from src.services.execution import CodeExecutionService
 from src.services.file import FileService
-from src.services.auth import AuthenticationService
-from src.models import Session, SessionCreate, SessionStatus
+from src.services.session import SessionService
 
 
 @pytest.fixture(scope="session")
@@ -116,12 +118,8 @@ def execution_service():
 
         # Mock kubernetes manager methods
         mock_manager.is_available.return_value = True
-        mock_manager.acquire_pod = AsyncMock(
-            return_value=(MagicMock(name="test-pod"), "pool_hit")
-        )
-        mock_manager.execute_code = AsyncMock(
-            return_value=(MagicMock(), MagicMock(), "pool_hit")
-        )
+        mock_manager.acquire_pod = AsyncMock(return_value=(MagicMock(name="test-pod"), "pool_hit"))
+        mock_manager.execute_code = AsyncMock(return_value=(MagicMock(), MagicMock(), "pool_hit"))
         mock_manager.destroy_pod = AsyncMock()
         mock_manager.get_pool_stats.return_value = {}
 
@@ -132,8 +130,9 @@ def execution_service():
 @pytest.fixture
 def file_service(mock_minio, mock_redis):
     """Create FileService instance with mocked dependencies."""
-    with patch("src.services.file.Minio", return_value=mock_minio), patch(
-        "src.services.file.redis.Redis", return_value=mock_redis
+    with (
+        patch("src.services.file.Minio", return_value=mock_minio),
+        patch("src.services.file.redis.Redis", return_value=mock_redis),
     ):
         service = FileService()
         yield service
@@ -152,9 +151,9 @@ def sample_session():
     return Session(
         session_id="test-session-123",
         status=SessionStatus.ACTIVE,
-        created_at=datetime.now(timezone.utc),
-        last_activity=datetime.now(timezone.utc),
-        expires_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        last_activity=datetime.now(UTC),
+        expires_at=datetime.now(UTC),
         metadata={"entity_id": "test-entity"},
     )
 
@@ -189,9 +188,7 @@ def mock_settings():
         mock_settings.max_output_files = 10
 
         # Add helper methods
-        mock_settings.get_session_ttl_minutes = (
-            lambda: mock_settings.session_ttl_hours * 60
-        )
+        mock_settings.get_session_ttl_minutes = lambda: mock_settings.session_ttl_hours * 60
 
         yield mock_settings
 
@@ -230,8 +227,9 @@ async def async_session_service(mock_redis):
 @pytest_asyncio.fixture
 async def async_file_service(mock_minio, mock_redis):
     """Async fixture for FileService."""
-    with patch("src.services.file.Minio", return_value=mock_minio), patch(
-        "src.services.file.redis.Redis", return_value=mock_redis
+    with (
+        patch("src.services.file.Minio", return_value=mock_minio),
+        patch("src.services.file.redis.Redis", return_value=mock_redis),
     ):
         service = FileService()
         yield service

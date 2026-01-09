@@ -1,14 +1,14 @@
 """File management API endpoints."""
 
 # Standard library imports
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 from urllib.parse import quote
 
 # Third-party imports
 import structlog
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from unidecode import unidecode
 
@@ -18,14 +18,11 @@ from ..dependencies import FileServiceDep
 from ..services.execution.output import OutputProcessor
 from ..utils.id_generator import generate_session_id
 
-
 logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 
-_ASCII_FILENAME_CHARS = (
-    "-_.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-)
+_ASCII_FILENAME_CHARS = "-_.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
 
 def _ascii_fallback_filename(name: str) -> str:
@@ -33,15 +30,11 @@ def _ascii_fallback_filename(name: str) -> str:
     safe_basename = Path(name).name
     transliterated = unidecode(safe_basename)
     transliterated = transliterated.replace(" ", "_")
-    sanitized = "".join(
-        ch if ch in _ASCII_FILENAME_CHARS else "_" for ch in transliterated
-    )
+    sanitized = "".join(ch if ch in _ASCII_FILENAME_CHARS else "_" for ch in transliterated)
     return sanitized or "download"
 
 
-def _build_content_disposition(
-    filename: Optional[str], fallback_identifier: str
-) -> str:
+def _build_content_disposition(filename: str | None, fallback_identifier: str) -> str:
     """Build Content-Disposition header that supports Unicode filenames."""
     default_name = fallback_identifier or "download"
     original_name = Path(filename or default_name).name
@@ -52,9 +45,9 @@ def _build_content_disposition(
 
 @router.post("/upload")
 async def upload_file(
-    file: Optional[UploadFile] = File(None),
-    files: Optional[List[UploadFile]] = File(None),
-    entity_id: Optional[str] = Form(None),
+    file: UploadFile | None = File(None),
+    files: list[UploadFile] | None = File(None),
+    entity_id: str | None = Form(None),
     file_service: FileServiceDep = None,
 ):
     """Upload files with multipart form handling - LibreChat compatible.
@@ -130,7 +123,7 @@ async def upload_file(
                     "session_id": session_id,
                     "content": None,  # LibreChat doesn't return content in upload response
                     "size": len(content),
-                    "lastModified": datetime.utcnow().isoformat(),
+                    "lastModified": datetime.now(UTC).isoformat(),
                     "etag": f'"{file_id}"',
                     "metadata": {
                         "content-type": file.content_type or "application/octet-stream",
@@ -151,10 +144,7 @@ async def upload_file(
         return {
             "message": "success",
             "session_id": session_id,
-            "files": [
-                {"filename": file["name"], "fileId": file["id"]}
-                for file in uploaded_files
-            ],
+            "files": [{"filename": file["name"], "fileId": file["id"]} for file in uploaded_files],
         }
 
     except HTTPException:
@@ -167,7 +157,7 @@ async def upload_file(
 @router.get("/files/{session_id}")
 async def list_files(
     session_id: str,
-    detail: Optional[str] = Query(
+    detail: str | None = Query(
         None,
         description="Detail level: 'simple' for basic info, otherwise full details",
     ),
@@ -191,12 +181,10 @@ async def list_files(
                     try:
                         dt = datetime.fromisoformat(dt)
                     except Exception:
-                        dt = datetime.utcnow()
+                        dt = datetime.now(UTC)
                 if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-                last_modified = dt.isoformat(timespec="milliseconds").replace(
-                    "+00:00", "Z"
-                )
+                    dt = dt.replace(tzinfo=UTC)
+                last_modified = dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
                 summary_files.append(
                     {
                         "name": f"{session_id}/{file_info.file_id}",
@@ -249,9 +237,7 @@ async def list_files(
 
 
 @router.get("/download/{session_id}/{file_id}")
-async def download_file(
-    session_id: str, file_id: str, file_service: FileServiceDep = None
-):
+async def download_file(session_id: str, file_id: str, file_service: FileServiceDep = None):
     """Download a file directly - LibreChat compatible."""
     try:
         # Get file info first
@@ -286,9 +272,7 @@ async def download_file(
             if guessed_type:
                 content_type = guessed_type
 
-        content_disposition = _build_content_disposition(
-            file_info.filename, file_info.file_id
-        )
+        content_disposition = _build_content_disposition(file_info.filename, file_info.file_id)
 
         # Return streaming response WITHOUT Content-Length to force chunked encoding
         return StreamingResponse(
@@ -333,9 +317,7 @@ async def download_file_options(session_id: str, file_id: str):
 
 
 @router.delete("/files/{session_id}/{file_id}")
-async def delete_file(
-    session_id: str, file_id: str, file_service: FileServiceDep = None
-):
+async def delete_file(session_id: str, file_id: str, file_service: FileServiceDep = None):
     """Delete a file from the session - LibreChat compatible."""
     try:
         # Get file info before deletion

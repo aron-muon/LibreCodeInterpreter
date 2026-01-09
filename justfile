@@ -5,18 +5,27 @@ default: help
 help:
     @echo "Available recipes:"
     @echo "  install          Install dependencies"
+    @echo "  run              Run the development server"
+    @echo "  docker-up        Start docker-compose services"
+    @echo "  docker-down      Stop docker-compose services"
+    @echo ""
+    @echo "Testing:"
     @echo "  test             Run all tests"
     @echo "  test-unit        Run unit tests only"
     @echo "  test-integration Run integration tests only"
+    @echo "  test-file FILE   Run a specific test file"
     @echo "  test-cov         Run tests with coverage report"
+    @echo "  perf-test        Run performance tests"
+    @echo ""
+    @echo "Code Quality:"
     @echo "  lint             Run ruff linter"
     @echo "  format           Format code with ruff"
     @echo "  format-check     Check code formatting without changes"
     @echo "  typecheck        Run ty type checking"
+    @echo "  security-scan    Run bandit security scan"
+    @echo ""
+    @echo "Maintenance:"
     @echo "  clean            Remove build artifacts and cache"
-    @echo "  run              Run the development server"
-    @echo "  docker-up        Start docker-compose services"
-    @echo "  docker-down      Stop docker-compose services"
 
 # Install dependencies
 install:
@@ -39,6 +48,14 @@ test-cov:
     uv run pytest --cov=src --cov-report=html --cov-report=term tests/
     @echo "Coverage report generated in htmlcov/"
 
+# Run a single test file (usage: just test-file tests/unit/test_session_service.py)
+test-file FILE:
+    uv run pytest {{FILE}} -v
+
+# Run performance tests
+perf-test:
+    uv run python scripts/perf_test.py
+
 # Lint with ruff
 lint:
     uv run ruff check src/ tests/
@@ -54,6 +71,10 @@ format-check:
 # Type checking with ty
 typecheck:
     uv run ty check src/
+
+# Security scan with bandit
+security-scan:
+    uv run bandit -r src/ -s B104,B108 --severity-level high
 
 # Clean build artifacts
 clean:

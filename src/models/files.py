@@ -12,9 +12,7 @@ class FileUploadRequest(BaseModel):
     """Request model for file upload."""
 
     filename: str = Field(..., description="Name of the file")
-    content_type: Optional[str] = Field(
-        default=None, description="MIME type of the file"
-    )
+    content_type: str | None = Field(default=None, description="MIME type of the file")
 
 
 class FileUploadResponse(BaseModel):
@@ -48,7 +46,7 @@ class FileInfo(BaseModel):
 class FileListResponse(BaseModel):
     """Response model for listing files."""
 
-    files: List[FileInfo]
+    files: list[FileInfo]
     total_count: int
     total_size: int = Field(..., description="Total size of all files in bytes")
 
@@ -71,4 +69,4 @@ class FileDeleteResponse(BaseModel):
     file_id: str
     filename: str
     deleted: bool
-    message: Optional[str] = None
+    message: str | None = None

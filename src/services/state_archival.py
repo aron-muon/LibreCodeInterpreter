@@ -19,8 +19,8 @@ States are archived to MinIO when:
 
 import asyncio
 import io
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
+from datetime import UTC, datetime, timezone
+from typing import Any, Dict, List, Optional
 
 import structlog
 from minio import Minio
@@ -49,8 +49,8 @@ class StateArchivalService:
 
     def __init__(
         self,
-        state_service: Optional[StateService] = None,
-        minio_client: Optional[Minio] = None,
+        state_service: StateService | None = None,
+        minio_client: Minio | None = None,
     ):
         """Initialize the archival service.
 
@@ -75,24 +75,16 @@ class StateArchivalService:
 
         try:
             loop = asyncio.get_event_loop()
-            bucket_exists = await loop.run_in_executor(
-                None, self.minio_client.bucket_exists, self.bucket_name
-            )
+            bucket_exists = await loop.run_in_executor(None, self.minio_client.bucket_exists, self.bucket_name)
 
             if not bucket_exists:
-                await loop.run_in_executor(
-                    None, self.minio_client.make_bucket, self.bucket_name
-                )
-                logger.info(
-                    "Created MinIO bucket for state archival", bucket=self.bucket_name
-                )
+                await loop.run_in_executor(None, self.minio_client.make_bucket, self.bucket_name)
+                logger.info("Created MinIO bucket for state archival", bucket=self.bucket_name)
 
             self._bucket_checked = True
 
         except S3Error as e:
-            logger.error(
-                "Failed to ensure bucket exists", error=str(e), bucket=self.bucket_name
-            )
+            logger.error("Failed to ensure bucket exists", error=str(e), bucket=self.bucket_name)
             raise
 
     async def archive_state(self, session_id: str, state_data: str) -> bool:
@@ -113,7 +105,7 @@ class StateArchivalService:
 
             # Create metadata
             metadata = {
-                "archived_at": datetime.now(timezone.utc).isoformat(),
+                "archived_at": datetime.now(UTC).isoformat(),
                 "original_size": str(len(state_bytes)),
                 "session_id": session_id,
             }
@@ -143,12 +135,10 @@ class StateArchivalService:
             return True
 
         except Exception as e:
-            logger.error(
-                "Failed to archive state", session_id=session_id[:12], error=str(e)
-            )
+            logger.error("Failed to archive state", session_id=session_id[:12], error=str(e))
             return False
 
-    async def restore_state(self, session_id: str) -> Optional[str]:
+    async def restore_state(self, session_id: str) -> str | None:
         """Restore a session state from MinIO.
 
         If found, the state is also saved back to Redis for fast access.
@@ -183,9 +173,7 @@ class StateArchivalService:
             state_data = state_bytes.decode("utf-8")
 
             # Restore to Redis for fast access
-            await self.state_service.save_state(
-                session_id, state_data, ttl_seconds=settings.state_ttl_seconds
-            )
+            await self.state_service.save_state(session_id, state_data, ttl_seconds=settings.state_ttl_seconds)
 
             logger.info(
                 "Restored state from MinIO",
@@ -195,9 +183,7 @@ class StateArchivalService:
             return state_data
 
         except Exception as e:
-            logger.error(
-                "Failed to restore state", session_id=session_id[:12], error=str(e)
-            )
+            logger.error("Failed to restore state", session_id=session_id[:12], error=str(e))
             return None
 
     async def delete_archived_state(self, session_id: str) -> bool:
@@ -274,7 +260,7 @@ class StateArchivalService:
             )
             return False
 
-    async def archive_inactive_states(self) -> Dict[str, Any]:
+    async def archive_inactive_states(self) -> dict[str, Any]:
         """Archive inactive states from Redis to MinIO.
 
         This is the main archival task that runs periodically.
@@ -337,7 +323,7 @@ class StateArchivalService:
             summary["error"] = str(e)
             return summary
 
-    async def cleanup_expired_archives(self) -> Dict[str, Any]:
+    async def cleanup_expired_archives(self) -> dict[str, Any]:
         """Clean up archived states that have exceeded their TTL.
 
         Returns:
@@ -357,16 +343,12 @@ class StateArchivalService:
             loop = asyncio.get_event_loop()
             prefix = f"{self.STATE_PREFIX}/"
             ttl_days = settings.state_archive_ttl_days
-            cutoff = datetime.now(timezone.utc).timestamp() - (ttl_days * 24 * 3600)
+            cutoff = datetime.now(UTC).timestamp() - (ttl_days * 24 * 3600)
 
             # List all archived states
             objects = await loop.run_in_executor(
                 None,
-                lambda: list(
-                    self.minio_client.list_objects(
-                        self.bucket_name, prefix=prefix, recursive=True
-                    )
-                ),
+                lambda: list(self.minio_client.list_objects(self.bucket_name, prefix=prefix, recursive=True)),
             )
 
             for obj in objects:

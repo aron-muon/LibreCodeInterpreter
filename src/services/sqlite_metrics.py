@@ -5,7 +5,7 @@ enabling historical analytics, time-series charts, and dashboard visualizations.
 """
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -90,13 +90,13 @@ CREATE INDEX IF NOT EXISTS idx_hourly_dow_hour ON hourly_activity(day_of_week, h
 class SQLiteMetricsService:
     """SQLite-based metrics storage for long-term analytics."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         self.db_path = db_path or settings.sqlite_metrics_db_path
-        self._db: Optional[aiosqlite.Connection] = None
+        self._db: aiosqlite.Connection | None = None
         self._write_queue: asyncio.Queue = asyncio.Queue()
-        self._writer_task: Optional[asyncio.Task] = None
-        self._aggregation_task: Optional[asyncio.Task] = None
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self._writer_task: asyncio.Task | None = None
+        self._aggregation_task: asyncio.Task | None = None
+        self._cleanup_task: asyncio.Task | None = None
         self._running = False
         self._batch_size = 100
         self._flush_interval = 5.0  # seconds
@@ -167,23 +167,19 @@ class SQLiteMetricsService:
 
     async def _batch_writer(self) -> None:
         """Background task that batches writes for efficiency."""
-        batch: List[DetailedExecutionMetrics] = []
+        batch: list[DetailedExecutionMetrics] = []
 
         while self._running:
             try:
                 # Wait for items with timeout
                 try:
-                    item = await asyncio.wait_for(
-                        self._write_queue.get(), timeout=self._flush_interval
-                    )
+                    item = await asyncio.wait_for(self._write_queue.get(), timeout=self._flush_interval)
                     batch.append(item)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
 
                 # Flush if batch is full or timeout occurred
-                if len(batch) >= self._batch_size or (
-                    batch and self._write_queue.empty()
-                ):
+                if len(batch) >= self._batch_size or (batch and self._write_queue.empty()):
                     await self._write_batch(batch)
                     batch = []
 
@@ -195,7 +191,7 @@ class SQLiteMetricsService:
             except Exception as e:
                 logger.error("Error in batch writer", error=str(e))
 
-    async def _write_batch(self, batch: List[DetailedExecutionMetrics]) -> None:
+    async def _write_batch(self, batch: list[DetailedExecutionMetrics]) -> None:
         """Write a batch of execution records to the database."""
         if not batch or not self._db:
             return
@@ -227,11 +223,7 @@ class SQLiteMetricsService:
                         m.files_generated,
                         m.output_size_bytes,
                         m.state_size_bytes,
-                        (
-                            m.timestamp.isoformat()
-                            if m.timestamp
-                            else datetime.now(timezone.utc).isoformat()
-                        ),
+                        (m.timestamp.isoformat() if m.timestamp else datetime.now(UTC).isoformat()),
                     )
                     for m in batch
                 ],
@@ -243,7 +235,7 @@ class SQLiteMetricsService:
 
     async def _flush_queue(self) -> None:
         """Flush all pending writes from the queue."""
-        batch: List[DetailedExecutionMetrics] = []
+        batch: list[DetailedExecutionMetrics] = []
         while not self._write_queue.empty():
             try:
                 batch.append(self._write_queue.get_nowait())
@@ -272,7 +264,7 @@ class SQLiteMetricsService:
 
         try:
             # Get yesterday's date for aggregation
-            yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date()
+            yesterday = (datetime.now(UTC) - timedelta(days=1)).date()
 
             # Aggregate by date, api_key, language
             await self._db.execute(
@@ -348,37 +340,21 @@ class SQLiteMetricsService:
             return
 
         try:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             # Clean up old executions
-            exec_cutoff = (
-                now - timedelta(days=settings.metrics_execution_retention_days)
-            ).isoformat()
-            result = await self._db.execute(
-                "DELETE FROM executions WHERE created_at < ?", (exec_cutoff,)
-            )
+            exec_cutoff = (now - timedelta(days=settings.metrics_execution_retention_days)).isoformat()
+            result = await self._db.execute("DELETE FROM executions WHERE created_at < ?", (exec_cutoff,))
             exec_deleted = result.rowcount
 
             # Clean up old daily aggregates
-            daily_cutoff = (
-                (now - timedelta(days=settings.metrics_daily_retention_days))
-                .date()
-                .isoformat()
-            )
-            result = await self._db.execute(
-                "DELETE FROM daily_aggregates WHERE date < ?", (daily_cutoff,)
-            )
+            daily_cutoff = (now - timedelta(days=settings.metrics_daily_retention_days)).date().isoformat()
+            result = await self._db.execute("DELETE FROM daily_aggregates WHERE date < ?", (daily_cutoff,))
             daily_deleted = result.rowcount
 
             # Clean up old hourly activity
-            hourly_cutoff = (
-                (now - timedelta(days=settings.metrics_execution_retention_days))
-                .date()
-                .isoformat()
-            )
-            result = await self._db.execute(
-                "DELETE FROM hourly_activity WHERE date < ?", (hourly_cutoff,)
-            )
+            hourly_cutoff = (now - timedelta(days=settings.metrics_execution_retention_days)).date().isoformat()
+            result = await self._db.execute("DELETE FROM hourly_activity WHERE date < ?", (hourly_cutoff,))
             hourly_deleted = result.rowcount
 
             await self._db.commit()
@@ -403,13 +379,13 @@ class SQLiteMetricsService:
         self,
         start: datetime,
         end: datetime,
-        api_key_hash: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        api_key_hash: str | None = None,
+    ) -> dict[str, Any]:
         """Get summary statistics for stats cards."""
         if not self._db:
             return {}
 
-        params: List[Any] = [start.isoformat(), end.isoformat()]
+        params: list[Any] = [start.isoformat(), end.isoformat()]
         api_key_filter = ""
         if api_key_hash:
             api_key_filter = "AND api_key_hash = ?"
@@ -444,9 +420,7 @@ class SQLiteMetricsService:
 
         total = row["total_executions"]
         success_rate = (row["success_count"] / total * 100) if total > 0 else 0
-        pool_hit_rate = (
-            (row["pool_hits"] / row["pool_total"] * 100) if row["pool_total"] > 0 else 0
-        )
+        pool_hit_rate = (row["pool_hits"] / row["pool_total"] * 100) if row["pool_total"] > 0 else 0
 
         return {
             "total_executions": total,
@@ -463,14 +437,14 @@ class SQLiteMetricsService:
         self,
         start: datetime,
         end: datetime,
-        api_key_hash: Optional[str] = None,
+        api_key_hash: str | None = None,
         stack_by_api_key: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get language usage data for stacked bar chart."""
         if not self._db:
             return {"by_language": {}, "by_api_key": {}, "matrix": {}}
 
-        params: List[Any] = [start.isoformat(), end.isoformat()]
+        params: list[Any] = [start.isoformat(), end.isoformat()]
         api_key_filter = ""
         if api_key_hash:
             api_key_filter = "AND api_key_hash = ?"
@@ -505,8 +479,8 @@ class SQLiteMetricsService:
             params,
         )
 
-        matrix: Dict[str, Dict[str, int]] = {}
-        api_keys_seen: Dict[str, int] = {}
+        matrix: dict[str, dict[str, int]] = {}
+        api_keys_seen: dict[str, int] = {}
 
         async for row in cursor:
             lang = row["language"]
@@ -531,9 +505,9 @@ class SQLiteMetricsService:
         self,
         start: datetime,
         end: datetime,
-        api_key_hash: Optional[str] = None,
+        api_key_hash: str | None = None,
         granularity: str = "hour",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get execution trend data for line chart."""
         if not self._db:
             return {
@@ -543,7 +517,7 @@ class SQLiteMetricsService:
                 "avg_duration": [],
             }
 
-        params: List[Any] = [start.isoformat(), end.isoformat()]
+        params: list[Any] = [start.isoformat(), end.isoformat()]
         api_key_filter = ""
         if api_key_hash:
             api_key_filter = "AND api_key_hash = ?"
@@ -580,11 +554,7 @@ class SQLiteMetricsService:
         async for row in cursor:
             timestamps.append(row["period"])
             executions.append(row["executions"])
-            rate = (
-                (row["success_count"] / row["executions"] * 100)
-                if row["executions"] > 0
-                else 0
-            )
+            rate = (row["success_count"] / row["executions"] * 100) if row["executions"] > 0 else 0
             success_rate.append(round(rate, 1))
             avg_duration.append(round(row["avg_duration"] or 0, 1))
 
@@ -599,13 +569,13 @@ class SQLiteMetricsService:
         self,
         start: datetime,
         end: datetime,
-        api_key_hash: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        api_key_hash: str | None = None,
+    ) -> dict[str, Any]:
         """Get day-of-week x hour activity matrix for heatmap."""
         if not self._db:
             return {"matrix": [[0] * 24 for _ in range(7)], "max_value": 0}
 
-        params: List[Any] = [start.isoformat(), end.isoformat()]
+        params: list[Any] = [start.isoformat(), end.isoformat()]
         api_key_filter = ""
         if api_key_hash:
             api_key_filter = "AND api_key_hash = ?"
@@ -639,7 +609,7 @@ class SQLiteMetricsService:
 
         return {"matrix": matrix, "max_value": max_value}
 
-    async def get_api_keys_list(self) -> List[Dict[str, Any]]:
+    async def get_api_keys_list(self) -> list[dict[str, Any]]:
         """Get list of API keys for filter dropdown."""
         if not self._db:
             return []
@@ -654,17 +624,14 @@ class SQLiteMetricsService:
             """
         )
 
-        return [
-            {"key_hash": row["api_key_hash"], "usage_count": row["usage_count"]}
-            async for row in cursor
-        ]
+        return [{"key_hash": row["api_key_hash"], "usage_count": row["usage_count"]} async for row in cursor]
 
     async def get_top_languages(
         self,
         start: datetime,
         end: datetime,
         limit: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get top languages by execution count."""
         if not self._db:
             return []
@@ -681,9 +648,7 @@ class SQLiteMetricsService:
             (start.isoformat(), end.isoformat(), limit),
         )
 
-        return [
-            {"language": row["language"], "count": row["count"]} async for row in cursor
-        ]
+        return [{"language": row["language"], "count": row["count"]} async for row in cursor]
 
 
 # Global service instance

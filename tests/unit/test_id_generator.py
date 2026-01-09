@@ -3,13 +3,13 @@
 import string
 
 import pytest
+
 from src.utils.id_generator import (
+    generate_execution_id,
+    generate_file_id,
     generate_nanoid,
     generate_session_id,
-    generate_file_id,
-    generate_execution_id,
 )
-
 
 ALPHANUMERIC = string.ascii_letters + string.digits
 FULL_ALPHABET = ALPHANUMERIC + "_-"
@@ -69,6 +69,7 @@ class TestGenerateNanoid:
     def test_matches_librechat_pattern(self):
         """Test that IDs match LibreChat's validation pattern."""
         import re
+
         pattern = re.compile(r"^[A-Za-z0-9_-]{21}$")
         for _ in range(100):
             result = generate_nanoid()
@@ -77,6 +78,7 @@ class TestGenerateNanoid:
     def test_valid_kubernetes_label(self):
         """Test that IDs are valid Kubernetes label values."""
         import re
+
         # Kubernetes label regex: (([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?
         pattern = re.compile(r"^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$")
         for _ in range(100):

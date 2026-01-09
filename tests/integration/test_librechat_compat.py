@@ -15,12 +15,13 @@ Test approach:
 - Only tests actual LibreChat behavior, no backward compatibility tests
 """
 
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch
-from datetime import datetime, timezone, timedelta
 import io
 import json
+from datetime import UTC, datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from fastapi.testclient import TestClient
 
 from src.main import app
 from src.models.exec import ExecResponse, FileRef
@@ -42,9 +43,7 @@ def auth_headers():
 @pytest.fixture
 def mock_exec_response():
     """Standard successful execution response."""
-    return ExecResponse(
-        session_id="test-session-123", stdout="output\n", stderr="", files=[]
-    )
+    return ExecResponse(session_id="test-session-123", stdout="output\n", stderr="", files=[])
 
 
 # =============================================================================
@@ -65,9 +64,7 @@ class TestLibreChatExecRequest:
     """
 
     @patch("src.services.orchestrator.ExecutionOrchestrator.execute")
-    def test_librechat_minimal_request(
-        self, mock_execute, client, auth_headers, mock_exec_response
-    ):
+    def test_librechat_minimal_request(self, mock_execute, client, auth_headers, mock_exec_response):
         """
         Test LibreChat minimal request format.
 
@@ -82,9 +79,7 @@ class TestLibreChatExecRequest:
         mock_execute.assert_called_once()
 
     @patch("src.services.orchestrator.ExecutionOrchestrator.execute")
-    def test_librechat_request_with_user_id(
-        self, mock_execute, client, auth_headers, mock_exec_response
-    ):
+    def test_librechat_request_with_user_id(self, mock_execute, client, auth_headers, mock_exec_response):
         """
         Test LibreChat request with user_id for tracking.
 
@@ -98,9 +93,7 @@ class TestLibreChatExecRequest:
         assert response.status_code == 200
 
     @patch("src.services.orchestrator.ExecutionOrchestrator.execute")
-    def test_librechat_request_with_files(
-        self, mock_execute, client, auth_headers, mock_exec_response
-    ):
+    def test_librechat_request_with_files(self, mock_execute, client, auth_headers, mock_exec_response):
         """
         Test LibreChat request with file references.
 
@@ -125,9 +118,7 @@ class TestLibreChatExecRequest:
         assert response.status_code == 200
 
     @patch("src.services.orchestrator.ExecutionOrchestrator.execute")
-    def test_librechat_request_with_multiple_files(
-        self, mock_execute, client, auth_headers, mock_exec_response
-    ):
+    def test_librechat_request_with_multiple_files(self, mock_execute, client, auth_headers, mock_exec_response):
         """Test LibreChat request with multiple file references."""
         mock_execute.return_value = mock_exec_response
 
@@ -145,9 +136,7 @@ class TestLibreChatExecRequest:
         assert response.status_code == 200
 
     @patch("src.services.orchestrator.ExecutionOrchestrator.execute")
-    def test_librechat_args_as_array(
-        self, mock_execute, client, auth_headers, mock_exec_response
-    ):
+    def test_librechat_args_as_array(self, mock_execute, client, auth_headers, mock_exec_response):
         """
         Test LibreChat args field format.
 
@@ -166,9 +155,7 @@ class TestLibreChatExecRequest:
         assert response.status_code == 200
 
     @patch("src.services.orchestrator.ExecutionOrchestrator.execute")
-    def test_librechat_request_with_session_id(
-        self, mock_execute, client, auth_headers, mock_exec_response
-    ):
+    def test_librechat_request_with_session_id(self, mock_execute, client, auth_headers, mock_exec_response):
         """
         Test LibreChat request with session_id for file access.
 
@@ -218,9 +205,7 @@ class TestLibreChatExecResponse:
             session_id="resp-session-123", stdout="test output\n", stderr="", files=[]
         )
 
-        response = client.post(
-            "/exec", json={"code": "print('test')", "lang": "py"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "print('test')", "lang": "py"}, headers=auth_headers)
 
         data = response.json()
 
@@ -243,18 +228,12 @@ class TestLibreChatExecResponse:
 
         LibreChat UI expects this for proper display.
         """
-        mock_execute.return_value = ExecResponse(
-            session_id="resp-session-123", stdout="hello\n", stderr="", files=[]
-        )
+        mock_execute.return_value = ExecResponse(session_id="resp-session-123", stdout="hello\n", stderr="", files=[])
 
-        response = client.post(
-            "/exec", json={"code": "print('hello')", "lang": "py"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "print('hello')", "lang": "py"}, headers=auth_headers)
 
         data = response.json()
-        assert data["stdout"].endswith(
-            "\n"
-        ), "stdout must end with newline for LibreChat"
+        assert data["stdout"].endswith("\n"), "stdout must end with newline for LibreChat"
 
     @patch("src.services.orchestrator.ExecutionOrchestrator.execute")
     def test_files_array_format(self, mock_execute, client, auth_headers):
@@ -270,9 +249,7 @@ class TestLibreChatExecResponse:
             files=[FileRef(id="gen-file-abc", name="output.png", path="/output.png")],
         )
 
-        response = client.post(
-            "/exec", json={"code": "generate image", "lang": "py"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "generate image", "lang": "py"}, headers=auth_headers)
 
         data = response.json()
         assert len(data["files"]) == 1
@@ -286,13 +263,9 @@ class TestLibreChatExecResponse:
     @patch("src.services.orchestrator.ExecutionOrchestrator.execute")
     def test_empty_stderr_on_success(self, mock_execute, client, auth_headers):
         """Test stderr is empty string on successful execution."""
-        mock_execute.return_value = ExecResponse(
-            session_id="resp-session-123", stdout="ok\n", stderr="", files=[]
-        )
+        mock_execute.return_value = ExecResponse(session_id="resp-session-123", stdout="ok\n", stderr="", files=[])
 
-        response = client.post(
-            "/exec", json={"code": "print('ok')", "lang": "py"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "print('ok')", "lang": "py"}, headers=auth_headers)
 
         data = response.json()
         assert data["stderr"] == "", "stderr should be empty on success"
@@ -319,13 +292,9 @@ class TestLibreChatExecResponse:
     @patch("src.services.orchestrator.ExecutionOrchestrator.execute")
     def test_session_id_is_string(self, mock_execute, client, auth_headers):
         """Test session_id is always a non-empty string."""
-        mock_execute.return_value = ExecResponse(
-            session_id="resp-session-123", stdout="", stderr="", files=[]
-        )
+        mock_execute.return_value = ExecResponse(session_id="resp-session-123", stdout="", stderr="", files=[])
 
-        response = client.post(
-            "/exec", json={"code": "pass", "lang": "py"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "pass", "lang": "py"}, headers=auth_headers)
 
         data = response.json()
         assert isinstance(data["session_id"], str)
@@ -370,9 +339,7 @@ class TestLibreChatFileUpload:
         From crud.js: form.append('file', stream, filename)
         """
         # LibreChat uses 'file' (singular), not 'files'
-        files = {
-            "file": ("document.pdf", io.BytesIO(b"PDF content"), "application/pdf")
-        }
+        files = {"file": ("document.pdf", io.BytesIO(b"PDF content"), "application/pdf")}
         data = {"entity_id": "asst_librechat"}
 
         response = client.post("/upload", files=files, data=data, headers=auth_headers)
@@ -469,14 +436,12 @@ class TestLibreChatFileRetrieval:
                 filename="output.png",
                 size=1024,
                 content_type="image/png",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 path="/output.png",
             )
         ]
 
-        response = client.get(
-            "/files/test-session-123?detail=summary", headers=auth_headers
-        )
+        response = client.get("/files/test-session-123?detail=summary", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -495,14 +460,12 @@ class TestLibreChatFileRetrieval:
                 filename="data.csv",
                 size=2048,
                 content_type="text/csv",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 path="/data.csv",
             )
         ]
 
-        response = client.get(
-            "/files/test-session-456?detail=full", headers=auth_headers
-        )
+        response = client.get("/files/test-session-456?detail=full", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -522,9 +485,7 @@ class TestLibreChatFileRetrieval:
             "text/plain",
         )
 
-        response = client.get(
-            "/download/test-session-789/file-abc", headers=auth_headers
-        )
+        response = client.get("/download/test-session-789/file-abc", headers=auth_headers)
 
         # Should return file content or appropriate response
         # Note: Actual status depends on whether file exists in mock

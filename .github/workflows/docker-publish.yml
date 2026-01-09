@@ -38,7 +38,7 @@ jobs:
       previous_tag: ${{ steps.prev_tag.outputs.tag_name }}
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0  # Need full history for tag comparison and version
 
@@ -66,7 +66,7 @@ jobs:
             echo "tag_name=$PREV_TAG" >> $GITHUB_OUTPUT
           fi
 
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: filter
         with:
           # For tag pushes, compare to previous tag; otherwise use default (base branch)

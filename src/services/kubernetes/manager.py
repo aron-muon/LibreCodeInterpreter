@@ -11,8 +11,10 @@ import structlog
 from .client import (
     get_core_api,
     get_current_namespace,
-    is_available as k8s_available,
     get_initialization_error,
+)
+from .client import (
+    is_available as k8s_available,
 )
 from .job_executor import JobExecutor
 from .models import (
@@ -37,8 +39,8 @@ class KubernetesManager:
 
     def __init__(
         self,
-        namespace: Optional[str] = None,
-        pool_configs: Optional[List[PoolConfig]] = None,
+        namespace: str | None = None,
+        pool_configs: list[PoolConfig] | None = None,
         sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest",
         default_cpu_limit: str = "1",
         default_memory_limit: str = "512Mi",
@@ -76,7 +78,7 @@ class KubernetesManager:
         )
 
         # Language image mappings (can be overridden by pool configs)
-        self._language_images: Dict[str, str] = {
+        self._language_images: dict[str, str] = {
             "python": "aronmuon/kubecoderun-python:latest",
             "py": "aronmuon/kubecoderun-python:latest",
             "javascript": "aronmuon/kubecoderun-javascript:latest",
@@ -89,7 +91,7 @@ class KubernetesManager:
         }
 
         # Track active executions
-        self._active_handles: Dict[str, PodHandle] = {}  # session_id -> handle
+        self._active_handles: dict[str, PodHandle] = {}  # session_id -> handle
 
         self._started = False
 
@@ -129,7 +131,7 @@ class KubernetesManager:
         """Check if Kubernetes is available."""
         return k8s_available()
 
-    def get_initialization_error(self) -> Optional[str]:
+    def get_initialization_error(self) -> str | None:
         """Get any initialization error."""
         return get_initialization_error()
 
@@ -161,7 +163,7 @@ class KubernetesManager:
         self,
         session_id: str,
         language: str,
-    ) -> Tuple[Optional[PodHandle], str]:
+    ) -> tuple[PodHandle | None, str]:
         """Acquire a pod for code execution.
 
         For languages with warm pools, acquires from the pool.
@@ -208,10 +210,10 @@ class KubernetesManager:
         code: str,
         language: str,
         timeout: int = 30,
-        files: Optional[List[Dict[str, Any]]] = None,
-        initial_state: Optional[str] = None,
+        files: list[dict[str, Any]] | None = None,
+        initial_state: str | None = None,
         capture_state: bool = False,
-    ) -> Tuple[ExecutionResult, Optional[PodHandle], str]:
+    ) -> tuple[ExecutionResult, PodHandle | None, str]:
         """Execute code in a pod.
 
         Automatically chooses between warm pool and Job execution
@@ -302,7 +304,7 @@ class KubernetesManager:
     async def copy_files_to_pod(
         self,
         handle: PodHandle,
-        files: List[FileData],
+        files: list[FileData],
     ) -> bool:
         """Copy files to a pod.
 
@@ -340,7 +342,7 @@ class KubernetesManager:
         self,
         handle: PodHandle,
         path: str,
-    ) -> Optional[bytes]:
+    ) -> bytes | None:
         """Copy a file from a pod.
 
         Args:
@@ -372,13 +374,13 @@ class KubernetesManager:
 
         return None
 
-    def get_pool_stats(self) -> Dict[str, Dict[str, int]]:
+    def get_pool_stats(self) -> dict[str, dict[str, int]]:
         """Get statistics for all pod pools."""
         return self._pool_manager.get_pool_stats()
 
     async def destroy_pods_batch(
         self,
-        handles: List[PodHandle],
+        handles: list[PodHandle],
     ) -> int:
         """Destroy multiple pods.
 

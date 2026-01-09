@@ -1,9 +1,10 @@
 """Error models and exception classes for the Code Interpreter API."""
 
 import time
-from typing import Optional, List
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class ErrorType(str, Enum):
@@ -26,9 +27,9 @@ class ErrorType(str, Enum):
 class ErrorDetail(BaseModel):
     """Detailed error information."""
 
-    field: Optional[str] = Field(None, description="Field name for validation errors")
+    field: str | None = Field(None, description="Field name for validation errors")
     message: str = Field(..., description="Human-readable error message")
-    code: Optional[str] = Field(None, description="Machine-readable error code")
+    code: str | None = Field(None, description="Machine-readable error code")
 
 
 class ErrorResponse(BaseModel):
@@ -36,12 +37,8 @@ class ErrorResponse(BaseModel):
 
     error: str = Field(..., description="Main error message")
     error_type: ErrorType = Field(..., description="Error category")
-    details: Optional[List[ErrorDetail]] = Field(
-        None, description="Additional error details"
-    )
-    request_id: Optional[str] = Field(
-        None, description="Request identifier for tracking"
-    )
+    details: list[ErrorDetail] | None = Field(None, description="Additional error details")
+    request_id: str | None = Field(None, description="Request identifier for tracking")
     timestamp: float = Field(default_factory=time.time, description="Error timestamp")
 
     class Config:
@@ -59,8 +56,8 @@ class CodeInterpreterException(Exception):
         message: str,
         error_type: ErrorType = ErrorType.INTERNAL_SERVER,
         status_code: int = 500,
-        details: Optional[List[ErrorDetail]] = None,
-        request_id: Optional[str] = None,
+        details: list[ErrorDetail] | None = None,
+        request_id: str | None = None,
     ):
         self.message = message
         self.error_type = error_type
@@ -107,9 +104,7 @@ class ValidationError(CodeInterpreterException):
     """Request validation errors."""
 
     def __init__(self, message: str = "Validation failed", **kwargs):
-        super().__init__(
-            message=message, error_type=ErrorType.VALIDATION, status_code=400, **kwargs
-        )
+        super().__init__(message=message, error_type=ErrorType.VALIDATION, status_code=400, **kwargs)
 
 
 class ResourceNotFoundError(CodeInterpreterException):

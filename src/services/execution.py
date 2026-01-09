@@ -9,6 +9,6 @@ The CodeExecutionService has been split into:
 """
 
 # Re-export from new package for backward compatibility
-from .execution import CodeExecutionService, CodeExecutionRunner, OutputProcessor
+from .execution import CodeExecutionRunner, CodeExecutionService, OutputProcessor
 
 __all__ = ["CodeExecutionService", "CodeExecutionRunner", "OutputProcessor"]

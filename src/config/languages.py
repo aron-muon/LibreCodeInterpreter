@@ -26,11 +26,11 @@ class LanguageConfig:
     uses_stdin: bool = False  # Whether code is passed via stdin
     timeout_multiplier: float = 1.0  # Multiplier for base timeout
     memory_multiplier: float = 1.0  # Multiplier for base memory limit
-    environment: Dict[str, str] = field(default_factory=dict)
+    environment: dict[str, str] = field(default_factory=dict)
 
 
 # All 12 supported languages with complete configuration
-LANGUAGES: Dict[str, LanguageConfig] = {
+LANGUAGES: dict[str, LanguageConfig] = {
     "py": LanguageConfig(
         code="py",
         name="Python",
@@ -167,7 +167,7 @@ LANGUAGES: Dict[str, LanguageConfig] = {
 }
 
 
-def get_language(code: str) -> Optional[LanguageConfig]:
+def get_language(code: str) -> LanguageConfig | None:
     """Get language configuration by code."""
     return LANGUAGES.get(code.lower())
 
@@ -183,9 +183,7 @@ def is_supported_language(code: str) -> bool:
 
 
 # Convenience lookups for backward compatibility during transition
-def get_image_for_language(
-    code: str, registry: Optional[str] = None, tag: str = "latest"
-) -> str:
+def get_image_for_language(code: str, registry: str | None = None, tag: str = "latest") -> str:
     """Get container image for a language.
 
     Image format: {registry}-{base_image}:{tag}

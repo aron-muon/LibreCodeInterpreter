@@ -10,28 +10,27 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
 # Local application imports
-from .api import files, exec, health, state, admin, dashboard_metrics
+from .api import admin, dashboard_metrics, exec, files, health, state
 from .config import settings
-from .middleware.security import SecurityMiddleware, RequestLoggingMiddleware
 from .middleware.metrics import MetricsMiddleware
+from .middleware.security import RequestLoggingMiddleware, SecurityMiddleware
 from .models.errors import CodeInterpreterException
 from .services.health import health_service
 from .services.metrics import metrics_collector
-from .utils.config_validator import validate_configuration, get_configuration_summary
+from .utils.config_validator import get_configuration_summary, validate_configuration
 from .utils.error_handlers import (
     code_interpreter_exception_handler,
+    general_exception_handler,
     http_exception_handler,
     validation_exception_handler,
-    general_exception_handler,
 )
 from .utils.logging import setup_logging
 from .utils.shutdown import setup_graceful_shutdown, shutdown_handler
-
 
 # Setup logging
 setup_logging()
@@ -65,9 +64,7 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("API key management: CLI disabled (no MASTER_API_KEY set)")
 
-    logger.info(
-        "Rate limiting configuration", rate_limit_enabled=settings.rate_limit_enabled
-    )
+    logger.info("Rate limiting configuration", rate_limit_enabled=settings.rate_limit_enabled)
 
     # Start monitoring services
     try:
@@ -109,19 +106,17 @@ async def lifespan(app: FastAPI):
     # Start event-driven cleanup scheduler
     try:
         logger.info("Starting cleanup scheduler...")
-        from .services.cleanup import cleanup_scheduler
         from .dependencies.services import (
             get_execution_service,
             get_file_service,
             get_state_archival_service,
         )
+        from .services.cleanup import cleanup_scheduler
 
         cleanup_scheduler.set_services(
             execution_service=get_execution_service(),
             file_service=get_file_service(),
-            state_archival_service=(
-                get_state_archival_service() if settings.state_archive_enabled else None
-            ),
+            state_archival_service=(get_state_archival_service() if settings.state_archive_enabled else None),
         )
         cleanup_scheduler.start()
         logger.info(
@@ -137,12 +132,12 @@ async def lifespan(app: FastAPI):
     if settings.pod_pool_enabled:
         try:
             logger.info("Starting Kubernetes pod pool...")
+            from .dependencies.services import (
+                inject_kubernetes_manager_to_execution_service,
+                set_kubernetes_manager,
+            )
             from .services.kubernetes import KubernetesManager
             from .services.kubernetes.models import PoolConfig
-            from .dependencies.services import (
-                set_kubernetes_manager,
-                inject_kubernetes_manager_to_execution_service,
-            )
 
             # Build pool configs from settings
             pool_configs = settings.get_pool_configs()
@@ -200,9 +195,7 @@ async def lifespan(app: FastAPI):
                 )
 
         overall_status = health_service.get_overall_status(health_results)
-        logger.info(
-            "Initial health checks completed", overall_status=overall_status.value
-        )
+        logger.info("Initial health checks completed", overall_status=overall_status.value)
 
     except Exception as e:
         logger.error("Initial health checks failed", error=str(e))
@@ -216,10 +209,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Code Interpreter API")
 
     # Stop SQLite metrics service (flush pending writes)
-    if (
-        hasattr(app.state, "sqlite_metrics_service")
-        and app.state.sqlite_metrics_service
-    ):
+    if hasattr(app.state, "sqlite_metrics_service") and app.state.sqlite_metrics_service:
         try:
             await app.state.sqlite_metrics_service.stop()
             logger.info("SQLite metrics service stopped")
@@ -277,9 +267,7 @@ if settings.enable_cors:
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
-        expose_headers=[
-            "Content-Disposition"
-        ],  # Removed Content-Length for chunked encoding
+        expose_headers=["Content-Disposition"],  # Removed Content-Length for chunked encoding
     )
     logger.info("CORS enabled", origins=origins)
 
@@ -369,9 +357,7 @@ def run_server():
         if settings.ssl_ca_certs:
             ssl_config["ssl_ca_certs"] = settings.ssl_ca_certs
 
-        logger.info(
-            f"Starting HTTPS server on {settings.api_host}:{settings.https_port}"
-        )
+        logger.info(f"Starting HTTPS server on {settings.api_host}:{settings.https_port}")
         uvicorn.run(
             "src.main:app",
             host=settings.api_host,

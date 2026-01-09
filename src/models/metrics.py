@@ -8,9 +8,9 @@ These models extend the basic metrics with additional dimensions:
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Dict, Any, Optional, List
+from datetime import UTC, datetime, timezone
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 
 class AggregationPeriod(str, Enum):
@@ -48,21 +48,21 @@ class DetailedExecutionMetrics:
     execution_id: str
     session_id: str
     api_key_hash: str  # SHA256 hash (first 16 chars) for grouping
-    user_id: Optional[str]  # From request
-    entity_id: Optional[str]  # From request
+    user_id: str | None  # From request
+    entity_id: str | None  # From request
     language: str
     status: str  # completed, failed, timeout
     execution_time_ms: float
-    memory_peak_mb: Optional[float] = None
-    cpu_time_ms: Optional[float] = None
+    memory_peak_mb: float | None = None
+    cpu_time_ms: float | None = None
     container_source: str = "pool_hit"  # pool_hit, pool_miss, pool_disabled
     files_uploaded: int = 0
     files_generated: int = 0
     output_size_bytes: int = 0
-    state_size_bytes: Optional[int] = None
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    state_size_bytes: int | None = None
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "execution_id": self.execution_id,
@@ -84,13 +84,13 @@ class DetailedExecutionMetrics:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DetailedExecutionMetrics":
+    def from_dict(cls, data: dict[str, Any]) -> "DetailedExecutionMetrics":
         """Create from dictionary."""
         timestamp = data.get("timestamp")
         if isinstance(timestamp, str):
             timestamp = datetime.fromisoformat(timestamp)
         elif timestamp is None:
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
 
         return cls(
             execution_id=data["execution_id"],
@@ -127,7 +127,7 @@ class LanguageMetrics:
     avg_memory_mb: float = 0
     error_rate: float = 0.0  # Percentage (0-100)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "language": self.language,
@@ -156,7 +156,7 @@ class ApiKeyUsageMetrics:
     file_operations: int = 0
     success_rate: float = 100.0  # Percentage (0-100)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "api_key_hash": self.api_key_hash,
@@ -181,7 +181,7 @@ class PoolMetricsSummary:
     avg_acquire_time_ms: float = 0
     exhaustion_events: int = 0  # Times pool was empty when needed
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_acquisitions": self.total_acquisitions,
@@ -210,11 +210,11 @@ class AggregatedMetrics:
     p99_execution_time_ms: float = 0
     total_memory_mb: float = 0
     avg_memory_mb: float = 0
-    by_language: Dict[str, LanguageMetrics] = field(default_factory=dict)
-    by_api_key: Dict[str, ApiKeyUsageMetrics] = field(default_factory=dict)
-    pool_stats: Optional[PoolMetricsSummary] = None
+    by_language: dict[str, LanguageMetrics] = field(default_factory=dict)
+    by_api_key: dict[str, ApiKeyUsageMetrics] = field(default_factory=dict)
+    pool_stats: PoolMetricsSummary | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "period": self.period,
@@ -246,10 +246,10 @@ class MetricsSummary:
     success_rate: float = 100.0
     avg_execution_time_ms: float = 0
     active_api_keys: int = 0
-    top_languages: List[Dict[str, Any]] = field(default_factory=list)
+    top_languages: list[dict[str, Any]] = field(default_factory=list)
     pool_hit_rate: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_executions": self.total_executions,

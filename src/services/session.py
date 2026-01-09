@@ -3,19 +3,20 @@
 # Standard library imports
 import asyncio
 import json
-from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Dict
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Dict, List, Optional
 
 # Third-party imports
 import redis.asyncio as redis
 import structlog
 
-# Local application imports
-from .interfaces import SessionServiceInterface
 from ..config import settings
 from ..core.pool import redis_pool
 from ..models.session import Session, SessionCreate, SessionStatus
 from ..utils.id_generator import generate_session_id
+
+# Local application imports
+from .interfaces import SessionServiceInterface
 
 logger = structlog.get_logger(__name__)
 
@@ -25,13 +26,13 @@ class SessionService(SessionServiceInterface):
 
     def __init__(
         self,
-        redis_client: Optional[redis.Redis] = None,
+        redis_client: redis.Redis | None = None,
         execution_service=None,
         file_service=None,
     ):
         """Initialize the session service with Redis client."""
         self.redis = redis_client or redis_pool.get_client()
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self._cleanup_task: asyncio.Task | None = None
         self._execution_service = execution_service
         self._file_service = file_service
         self._redis_available = False
@@ -94,18 +95,14 @@ class SessionService(SessionServiceInterface):
                 # Opportunistically prune orphan MinIO objects (configurable)
                 if self._file_service and settings.enable_orphan_minio_cleanup:
                     try:
-                        deleted_orphans = (
-                            await self._file_service.cleanup_orphan_objects()
-                        )
+                        deleted_orphans = await self._file_service.cleanup_orphan_objects()
                         if deleted_orphans:
                             logger.info(
                                 "Pruned orphan MinIO objects",
                                 deleted_orphans=deleted_orphans,
                             )
                     except Exception as e:
-                        logger.error(
-                            "Failed pruning orphan MinIO objects", error=str(e)
-                        )
+                        logger.error("Failed pruning orphan MinIO objects", error=str(e))
 
                 # Wait for the configured cleanup interval
                 await asyncio.sleep(settings.session_cleanup_interval_minutes * 60)
@@ -138,7 +135,7 @@ class SessionService(SessionServiceInterface):
     async def create_session(self, request: SessionCreate) -> Session:
         """Create a new code execution session."""
         session_id = self._generate_session_id()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = now + timedelta(minutes=settings.get_session_ttl_minutes())
 
         # Ensure metadata is not None
@@ -188,19 +185,15 @@ class SessionService(SessionServiceInterface):
 
             await pipe.execute()
         except Exception as e:
-            logger.error(
-                "Redis pipeline execution failed", session_id=session_id, error=str(e)
-            )
+            logger.error("Redis pipeline execution failed", session_id=session_id, error=str(e))
             raise
         finally:
             await pipe.reset()
 
-        logger.info(
-            "Session created", session_id=session_id, expires_at=expires_at.isoformat()
-        )
+        logger.info("Session created", session_id=session_id, expires_at=expires_at.isoformat())
         return session
 
-    async def get_session(self, session_id: str) -> Optional[Session]:
+    async def get_session(self, session_id: str) -> Session | None:
         """Retrieve a session by ID."""
         session_key = self._session_key(session_id)
         session_data = await self.redis.hgetall(session_key)
@@ -244,12 +237,10 @@ class SessionService(SessionServiceInterface):
 
             return session
         except Exception as e:
-            logger.error(
-                "Error parsing session data", session_id=session_id, error=str(e)
-            )
+            logger.error("Error parsing session data", session_id=session_id, error=str(e))
             return None
 
-    async def update_session(self, session_id: str, **updates) -> Optional[Session]:
+    async def update_session(self, session_id: str, **updates) -> Session | None:
         """Update session properties."""
         session_key = self._session_key(session_id)
 
@@ -268,7 +259,7 @@ class SessionService(SessionServiceInterface):
                 redis_updates[key] = str(value)
 
         # Update last activity
-        redis_updates["last_activity"] = datetime.now(timezone.utc).isoformat()
+        redis_updates["last_activity"] = datetime.now(UTC).isoformat()
 
         # Apply updates
         await self.redis.hset(session_key, mapping=redis_updates)
@@ -290,9 +281,7 @@ class SessionService(SessionServiceInterface):
         if self._execution_service:
             try:
                 await self._execution_service.cleanup_session(session_id)
-                logger.info(
-                    "Cleaned up execution resources for session", session_id=session_id
-                )
+                logger.info("Cleaned up execution resources for session", session_id=session_id)
             except Exception as e:
                 logger.error(
                     "Failed to cleanup execution resources for session",
@@ -304,9 +293,7 @@ class SessionService(SessionServiceInterface):
         # Clean up file resources BEFORE deleting session
         if self._file_service:
             try:
-                deleted_files = await self._file_service.cleanup_session_files(
-                    session_id
-                )
+                deleted_files = await self._file_service.cleanup_session_files(session_id)
                 logger.info(
                     "Cleaned up file resources for session",
                     session_id=session_id,
@@ -343,7 +330,7 @@ class SessionService(SessionServiceInterface):
 
         return deleted
 
-    async def list_sessions(self, limit: int = 100, offset: int = 0) -> List[Session]:
+    async def list_sessions(self, limit: int = 100, offset: int = 0) -> list[Session]:
         """List all active sessions."""
         # Get all session IDs from the index
         session_ids = await self.redis.smembers(self._session_index_key())
@@ -361,7 +348,7 @@ class SessionService(SessionServiceInterface):
 
     async def cleanup_expired_sessions(self) -> int:
         """Clean up expired sessions and return count of cleaned sessions."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         cleaned_count = 0
 
         # Get all session IDs
@@ -371,15 +358,11 @@ class SessionService(SessionServiceInterface):
             session = await self.get_session(session_id)
             # If session data is missing, treat as expired/orphaned and clean up indexes
             if not session:
-                logger.info(
-                    "Cleaning up orphaned session (missing data)", session_id=session_id
-                )
+                logger.info("Cleaning up orphaned session (missing data)", session_id=session_id)
                 # Attempt to clean up any files associated with this session by prefix
                 if self._file_service:
                     try:
-                        deleted_files = await self._file_service.cleanup_session_files(
-                            session_id
-                        )
+                        deleted_files = await self._file_service.cleanup_session_files(session_id)
                         logger.info(
                             "Cleaned up files for orphaned session",
                             session_id=session_id,
@@ -434,9 +417,7 @@ class SessionService(SessionServiceInterface):
         logger.info("Force cleaned all sessions", cleaned_count=cleaned_count)
         return cleaned_count
 
-    async def list_sessions_by_entity(
-        self, entity_id: str, limit: int = 100, offset: int = 0
-    ) -> List[Session]:
+    async def list_sessions_by_entity(self, entity_id: str, limit: int = 100, offset: int = 0) -> list[Session]:
         """List sessions associated with a specific entity."""
         # Get session IDs for the entity
         session_ids = await self.redis.smembers(self._entity_sessions_key(entity_id))
@@ -452,9 +433,7 @@ class SessionService(SessionServiceInterface):
 
         return sessions
 
-    async def validate_session_access(
-        self, session_id: str, entity_id: Optional[str] = None
-    ) -> bool:
+    async def validate_session_access(self, session_id: str, entity_id: str | None = None) -> bool:
         """Validate if a session can be accessed, optionally checking entity association."""
         session = await self.get_session(session_id)
         if not session:
@@ -462,9 +441,7 @@ class SessionService(SessionServiceInterface):
 
         # If entity_id is provided, check if session belongs to that entity
         if entity_id:
-            session_entity_id = (
-                session.metadata.get("entity_id") if session.metadata else None
-            )
+            session_entity_id = session.metadata.get("entity_id") if session.metadata else None
             if session_entity_id != entity_id:
                 return False
 
@@ -483,9 +460,7 @@ class SessionService(SessionServiceInterface):
             except Exception as e:
                 logger.error("Error closing session service", error=str(e))
 
-    async def get_session_files_access(
-        self, session_id: str, entity_id: Optional[str] = None
-    ) -> bool:
+    async def get_session_files_access(self, session_id: str, entity_id: str | None = None) -> bool:
         """Check if files in a session can be accessed based on entity grouping."""
         # First validate basic session access
         if not await self.validate_session_access(session_id, entity_id):
@@ -503,6 +478,4 @@ class SessionService(SessionServiceInterface):
     async def _update_last_activity(self, session_id: str) -> None:
         """Update the last activity timestamp for a session."""
         session_key = self._session_key(session_id)
-        await self.redis.hset(
-            session_key, "last_activity", datetime.now(timezone.utc).isoformat()
-        )
+        await self.redis.hset(session_key, "last_activity", datetime.now(UTC).isoformat())

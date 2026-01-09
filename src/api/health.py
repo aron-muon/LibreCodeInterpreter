@@ -1,14 +1,13 @@
 """Health check and monitoring endpoints."""
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from fastapi.responses import JSONResponse
 import structlog
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 
-from ..services.health import health_service, HealthStatus
-from ..services.metrics import metrics_collector
-from ..dependencies.auth import verify_api_key
 from ..config import settings
-
+from ..dependencies.auth import verify_api_key
+from ..services.health import HealthStatus, health_service
+from ..services.metrics import metrics_collector
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -42,30 +41,14 @@ async def detailed_health_check(
         response_data = {
             "status": overall_status.value,
             "timestamp": (
-                service_results[list(service_results.keys())[0]].timestamp.isoformat()
-                if service_results
-                else None
+                service_results[list(service_results.keys())[0]].timestamp.isoformat() if service_results else None
             ),
-            "services": {
-                name: result.to_dict() for name, result in service_results.items()
-            },
+            "services": {name: result.to_dict() for name, result in service_results.items()},
             "summary": {
                 "total_services": len(service_results),
-                "healthy_services": sum(
-                    1
-                    for r in service_results.values()
-                    if r.status == HealthStatus.HEALTHY
-                ),
-                "degraded_services": sum(
-                    1
-                    for r in service_results.values()
-                    if r.status == HealthStatus.DEGRADED
-                ),
-                "unhealthy_services": sum(
-                    1
-                    for r in service_results.values()
-                    if r.status == HealthStatus.UNHEALTHY
-                ),
+                "healthy_services": sum(1 for r in service_results.values() if r.status == HealthStatus.HEALTHY),
+                "degraded_services": sum(1 for r in service_results.values() if r.status == HealthStatus.DEGRADED),
+                "unhealthy_services": sum(1 for r in service_results.values() if r.status == HealthStatus.UNHEALTHY),
             },
         }
 
@@ -185,9 +168,7 @@ async def get_execution_metrics(_: str = Depends(verify_api_key)):
 
     except Exception as e:
         logger.error("Failed to get execution metrics", error=str(e))
-        raise HTTPException(
-            status_code=500, detail="Failed to retrieve execution metrics"
-        )
+        raise HTTPException(status_code=500, detail="Failed to retrieve execution metrics")
 
 
 @router.get("/metrics/api", summary="API metrics")
@@ -223,12 +204,8 @@ async def get_service_status(_: str = Depends(verify_api_key)):
                 for name, result in service_results.items()
             },
             "metrics": {
-                "total_executions": system_metrics.get("counters", {}).get(
-                    "executions_total", 0
-                ),
-                "total_api_requests": system_metrics.get("counters", {}).get(
-                    "api_requests_total", 0
-                ),
+                "total_executions": system_metrics.get("counters", {}).get("executions_total", 0),
+                "total_api_requests": system_metrics.get("counters", {}).get("api_requests_total", 0),
                 "buffer_size": system_metrics.get("buffer_size", 0),
                 "uptime_seconds": system_metrics.get("uptime_seconds", 0),
             },
@@ -272,18 +249,14 @@ async def get_detailed_metrics(
 
         return {
             "summary": summary.to_dict(),
-            "by_language": {
-                lang: stats.to_dict() for lang, stats in language_stats.items()
-            },
+            "by_language": {lang: stats.to_dict() for lang, stats in language_stats.items()},
             "pool_stats": pool_stats.to_dict(),
             "period_hours": hours,
         }
 
     except Exception as e:
         logger.error("Failed to get detailed metrics", error=str(e))
-        raise HTTPException(
-            status_code=500, detail="Failed to retrieve detailed metrics"
-        )
+        raise HTTPException(status_code=500, detail="Failed to retrieve detailed metrics")
 
 
 @router.get("/metrics/by-language", summary="Per-language metrics")
@@ -303,9 +276,7 @@ async def get_language_metrics(
         language_stats = await service.get_language_stats(hours=hours)
 
         # Sort by execution count
-        sorted_stats = sorted(
-            language_stats.values(), key=lambda x: x.execution_count, reverse=True
-        )
+        sorted_stats = sorted(language_stats.values(), key=lambda x: x.execution_count, reverse=True)
 
         return {
             "languages": [stats.to_dict() for stats in sorted_stats],
@@ -315,9 +286,7 @@ async def get_language_metrics(
 
     except Exception as e:
         logger.error("Failed to get language metrics", error=str(e))
-        raise HTTPException(
-            status_code=500, detail="Failed to retrieve language metrics"
-        )
+        raise HTTPException(status_code=500, detail="Failed to retrieve language metrics")
 
 
 @router.get("/metrics/by-api-key/{key_hash}", summary="Per-API-key metrics")
@@ -348,9 +317,7 @@ async def get_api_key_metrics(
 
     except Exception as e:
         logger.error("Failed to get API key metrics", error=str(e))
-        raise HTTPException(
-            status_code=500, detail="Failed to retrieve API key metrics"
-        )
+        raise HTTPException(status_code=500, detail="Failed to retrieve API key metrics")
 
 
 @router.get("/metrics/pool", summary="Pod pool metrics")

@@ -11,18 +11,18 @@ from typing import Optional, Tuple
 import structlog
 from kubernetes import client, config
 from kubernetes.client import (
-    CoreV1Api,
-    BatchV1Api,
     ApiException,
+    BatchV1Api,
+    CoreV1Api,
 )
 
 logger = structlog.get_logger(__name__)
 
 # Global client instances
-_core_api: Optional[CoreV1Api] = None
-_batch_api: Optional[BatchV1Api] = None
+_core_api: CoreV1Api | None = None
+_batch_api: BatchV1Api | None = None
 _initialized: bool = False
-_init_error: Optional[str] = None
+_init_error: str | None = None
 
 
 def _load_config() -> bool:
@@ -92,7 +92,7 @@ def initialize_client() -> bool:
         return False
 
 
-def get_kubernetes_client() -> Tuple[Optional[CoreV1Api], Optional[BatchV1Api]]:
+def get_kubernetes_client() -> tuple[CoreV1Api | None, BatchV1Api | None]:
     """Get the Kubernetes API clients.
 
     Returns:
@@ -104,13 +104,13 @@ def get_kubernetes_client() -> Tuple[Optional[CoreV1Api], Optional[BatchV1Api]]:
     return _core_api, _batch_api
 
 
-def get_core_api() -> Optional[CoreV1Api]:
+def get_core_api() -> CoreV1Api | None:
     """Get the Core V1 API client for pod operations."""
     core, _ = get_kubernetes_client()
     return core
 
 
-def get_batch_api() -> Optional[BatchV1Api]:
+def get_batch_api() -> BatchV1Api | None:
     """Get the Batch V1 API client for job operations."""
     _, batch = get_kubernetes_client()
     return batch
@@ -123,7 +123,7 @@ def is_available() -> bool:
     return _core_api is not None
 
 
-def get_initialization_error() -> Optional[str]:
+def get_initialization_error() -> str | None:
     """Get the initialization error message if any."""
     return _init_error
 
@@ -143,7 +143,7 @@ def get_current_namespace() -> str:
     try:
         with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace") as f:
             return f.read().strip()
-    except (FileNotFoundError, IOError):
+    except (OSError, FileNotFoundError):
         pass
 
     # Default namespace
@@ -157,16 +157,14 @@ class KubernetesClientContext:
     """
 
     def __init__(self):
-        self.core_api: Optional[CoreV1Api] = None
-        self.batch_api: Optional[BatchV1Api] = None
+        self.core_api: CoreV1Api | None = None
+        self.batch_api: BatchV1Api | None = None
         self.namespace: str = get_current_namespace()
 
     def __enter__(self):
         self.core_api, self.batch_api = get_kubernetes_client()
         if not self.core_api:
-            raise RuntimeError(
-                f"Kubernetes client not available: {get_initialization_error()}"
-            )
+            raise RuntimeError(f"Kubernetes client not available: {get_initialization_error()}")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

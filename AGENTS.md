@@ -25,12 +25,12 @@ just test-unit           # Unit tests only (fast, no deps)
 just test-integration    # Integration tests (requires K8s/Redis/MinIO)
 just test-cov            # Tests with HTML coverage report
 
-# Run a single test
-uv run pytest tests/unit/test_session_service.py -v
-uv run pytest tests/unit/test_session_service.py::test_specific_function -v
+# Run a single test file
+just test-file tests/unit/test_session_service.py
+just test-file tests/unit/test_session_service.py::test_specific_function
 
 # Performance testing
-uv run python scripts/perf_test.py
+just perf-test
 ```
 
 ## Architecture

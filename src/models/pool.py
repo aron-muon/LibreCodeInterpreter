@@ -5,7 +5,7 @@ to sessions - pods are provided fresh and destroyed after each execution.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime, timezone
 from typing import Literal
 
 
@@ -49,7 +49,7 @@ class PoolStats:
     pods_created: int = 0
     pods_destroyed: int = 0
     avg_acquire_time_ms: float = 0.0
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass

@@ -8,38 +8,37 @@ jobs:
   python-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: "3.13"
 
       - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
+
+      - name: Install just
+        uses: taiki-e/install-action@dfcb1ee29051d97c8d0f2d437199570008fd5612 # 2.65.15
+        with:
+          tool: just # latest
+          checksum: true
+          fallback: none
 
       - name: Install dependencies
-        run: |
-          uv sync
+        run: just install
 
       - name: Lint with ruff
-        run: |
-          uv run ruff check src/
+        run: just lint
 
       - name: Check formatting with ruff
-        run: |
-          uv run ruff format --check src/
+        run: just format-check
 
       - name: Type checking with ty
-        run: |
-          uv run ty check src/
-
-      - name: Security scan with Bandit
-        run: |
-          uv run bandit -r src/ -s B104,B108 --severity-level high
+        run: just typecheck
 
       - name: Run Unit Tests
-        run: |
-          uv run pytest tests/unit/
+        run: just test-unit
+
+      - name: Security scan with Bandit
+        run: just security-scan

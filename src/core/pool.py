@@ -5,6 +5,7 @@ allowing efficient resource sharing across the application.
 """
 
 from typing import Optional
+
 import redis.asyncio as redis
 import structlog
 
@@ -25,8 +26,8 @@ class RedisPool:
     """
 
     def __init__(self):
-        self._pool: Optional[redis.ConnectionPool] = None
-        self._client: Optional[redis.Redis] = None
+        self._pool: redis.ConnectionPool | None = None
+        self._client: redis.Redis | None = None
         self._initialized = False
 
     def _initialize(self) -> None:
@@ -54,9 +55,7 @@ class RedisPool:
         except Exception as e:
             logger.error("Failed to initialize Redis pool", error=str(e))
             # Create a fallback client
-            self._client = redis.from_url(
-                "redis://localhost:6379/0", decode_responses=True
-            )
+            self._client = redis.from_url("redis://localhost:6379/0", decode_responses=True)
             self._initialized = True
 
     def get_client(self) -> redis.Redis:

@@ -1,14 +1,15 @@
 """Integration tests for the /exec endpoint."""
 
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch, MagicMock
 import json
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from fastapi.testclient import TestClient
 
 from src.main import app
-from src.models import CodeExecution, ExecutionStatus, ExecutionOutput, OutputType
+from src.models import CodeExecution, ExecutionOutput, ExecutionStatus, OutputType
 
 
 @pytest.fixture
@@ -29,15 +30,16 @@ def mock_session_service():
     service = AsyncMock()
 
     # Mock session creation
+    from datetime import datetime
+
     from src.models.session import Session, SessionStatus
-    from datetime import datetime, timezone, timedelta
 
     mock_session = Session(
         session_id="test-session-123",
         status=SessionStatus.ACTIVE,
-        created_at=datetime.now(timezone.utc),
-        last_activity=datetime.now(timezone.utc),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+        created_at=datetime.now(UTC),
+        last_activity=datetime.now(UTC),
+        expires_at=datetime.now(UTC) + timedelta(hours=24),
         metadata={"entity_id": "test-entity"},
     )
 
@@ -66,7 +68,7 @@ def mock_execution_service():
             ExecutionOutput(
                 type=OutputType.STDOUT,
                 content="Hello, World!",
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
         ],
     )
@@ -88,9 +90,9 @@ def mock_file_service():
 def mock_dependencies(mock_session_service, mock_execution_service, mock_file_service):
     """Mock all dependencies for testing."""
     from src.dependencies.services import (
-        get_session_service,
         get_execution_service,
         get_file_service,
+        get_session_service,
     )
 
     # Override the dependencies in the FastAPI app
@@ -107,9 +109,7 @@ def mock_dependencies(mock_session_service, mock_execution_service, mock_file_se
 class TestExecEndpoint:
     """Test the /exec endpoint functionality."""
 
-    def test_exec_simple_python_code(
-        self, client, auth_headers, mock_execution_service
-    ):
+    def test_exec_simple_python_code(self, client, auth_headers, mock_execution_service):
         """Test executing simple Python code."""
         request_data = {"code": "print('Hello, World!')", "lang": "py"}
 
@@ -133,9 +133,7 @@ class TestExecEndpoint:
         # Verify service was called
         mock_execution_service.execute_code.assert_called_once()
 
-    def test_exec_with_entity_id(
-        self, client, auth_headers, mock_session_service, mock_execution_service
-    ):
+    def test_exec_with_entity_id(self, client, auth_headers, mock_session_service, mock_execution_service):
         """Test executing code with entity_id for session sharing."""
         request_data = {
             "code": "print('Hello from entity!')",
@@ -153,17 +151,13 @@ class TestExecEndpoint:
         create_call = mock_session_service.create_session.call_args[0][0]
         assert create_call.metadata["entity_id"] == "test-entity-123"
 
-    @pytest.mark.skip(
-        reason="Mock file service returns AsyncMock instead of proper values"
-    )
+    @pytest.mark.skip(reason="Mock file service returns AsyncMock instead of proper values")
     def test_exec_with_files(self, client, auth_headers, mock_execution_service):
         """Test executing code with file references."""
         request_data = {
             "code": "with open('data.txt', 'r') as f: print(f.read())",
             "lang": "py",
-            "files": [
-                {"id": "file-123", "session_id": "test-session", "name": "data.txt"}
-            ],
+            "files": [{"id": "file-123", "session_id": "test-session", "name": "data.txt"}],
         }
 
         response = client.post("/exec", json=request_data, headers=auth_headers)
@@ -177,9 +171,7 @@ class TestExecEndpoint:
         assert len(files_arg) == 1
         assert files_arg[0]["id"] == "file-123"
 
-    def test_exec_different_languages(
-        self, client, auth_headers, mock_execution_service
-    ):
+    def test_exec_different_languages(self, client, auth_headers, mock_execution_service):
         """Test executing code in different languages."""
         test_cases = [
             {"lang": "py", "code": "print('Hello Python')"},
@@ -202,9 +194,7 @@ class TestExecEndpoint:
             # Language is no longer returned in the response for LibreChat compatibility
             assert "session_id" in response_data
 
-    def test_exec_with_execution_error(
-        self, client, auth_headers, mock_execution_service
-    ):
+    def test_exec_with_execution_error(self, client, auth_headers, mock_execution_service):
         """Test handling execution errors."""
         # Mock failed execution
         failed_execution = CodeExecution(
@@ -219,7 +209,7 @@ class TestExecEndpoint:
                 ExecutionOutput(
                     type=OutputType.STDERR,
                     content="NameError: name 'undefined_variable' is not defined",
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                 )
             ],
         )
@@ -301,9 +291,7 @@ class TestExecEndpoint:
         assert response.status_code == 422
 
         # Missing lang
-        response = client.post(
-            "/exec", json={"code": "print('test')"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "print('test')"}, headers=auth_headers)
         assert response.status_code == 422
 
     def test_exec_with_args(self, client, auth_headers, mock_execution_service):
@@ -332,9 +320,7 @@ class TestExecEndpoint:
         assert response.status_code == 200
         # User ID would be used for logging/tracking
 
-    def test_exec_session_reuse(
-        self, client, auth_headers, mock_session_service, mock_execution_service
-    ):
+    def test_exec_session_reuse(self, client, auth_headers, mock_session_service, mock_execution_service):
         """Test that sessions are reused for the same entity."""
         request_data = {"code": "x = 1", "lang": "py", "entity_id": "test-entity"}
 
@@ -381,9 +367,7 @@ class TestExecEndpoint:
         assert response.status_code == 503
         assert "error" in response.json()
 
-    def test_exec_response_format_compatibility(
-        self, client, auth_headers, mock_execution_service
-    ):
+    def test_exec_response_format_compatibility(self, client, auth_headers, mock_execution_service):
         """Test that response format is compatible with LibreChat API."""
         request_data = {"code": "print('Hello, World!')", "lang": "py"}
 
@@ -400,12 +384,8 @@ class TestExecEndpoint:
         # Check that files is a list
         assert isinstance(response_data["files"], list)
 
-    @pytest.mark.skip(
-        reason="Mock file service returns AsyncMock instead of proper values"
-    )
-    def test_exec_with_generated_files(
-        self, client, auth_headers, mock_execution_service, mock_file_service
-    ):
+    @pytest.mark.skip(reason="Mock file service returns AsyncMock instead of proper values")
+    def test_exec_with_generated_files(self, client, auth_headers, mock_execution_service, mock_file_service):
         """Test execution that generates files."""
         # Mock execution with file output
         execution_with_files = CodeExecution(
@@ -421,7 +401,7 @@ class TestExecEndpoint:
                     content="/workspace/output.txt",
                     mime_type="text/plain",
                     size=17,
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                 )
             ],
         )
@@ -442,7 +422,7 @@ class TestExecEndpoint:
             filename="output.txt",
             size=17,
             content_type="text/plain",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             path="/output.txt",
         )
         mock_file_service.list_files.return_value = [mock_file_info]
@@ -462,9 +442,7 @@ class TestExecEndpoint:
         assert response_data["files"][0]["id"] == "generated-file-123"
         assert response_data["files"][0]["name"] == "output.txt"
 
-    def test_exec_large_output_handling(
-        self, client, auth_headers, mock_execution_service
-    ):
+    def test_exec_large_output_handling(self, client, auth_headers, mock_execution_service):
         """Test handling of large execution output."""
         # Mock execution with large output
         large_output = "A" * 100000  # 100KB output
@@ -480,7 +458,7 @@ class TestExecEndpoint:
                 ExecutionOutput(
                     type=OutputType.STDOUT,
                     content=large_output,
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                 )
             ],
         )

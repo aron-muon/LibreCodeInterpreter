@@ -31,9 +31,7 @@ class MinIOConfig(BaseSettings):
     def validate_endpoint(cls, v: str) -> str:
         """Ensure endpoint doesn't include protocol."""
         if v.startswith(("http://", "https://")):
-            raise ValueError(
-                "MinIO endpoint should not include protocol (use secure instead)"
-            )
+            raise ValueError("MinIO endpoint should not include protocol (use secure instead)")
         return v
 
     @model_validator(mode="after")
@@ -41,9 +39,7 @@ class MinIOConfig(BaseSettings):
         """Ensure credentials are provided when not using IAM."""
         if not self.use_iam:
             if not self.access_key or not self.secret_key:
-                raise ValueError(
-                    "MinIO access_key and secret_key are required when use_iam is False"
-                )
+                raise ValueError("MinIO access_key and secret_key are required when use_iam is False")
             if len(self.access_key) < 3:
                 raise ValueError("MinIO access_key must be at least 3 characters")
             if len(self.secret_key) < 8:

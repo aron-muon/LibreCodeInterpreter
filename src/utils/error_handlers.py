@@ -6,20 +6,20 @@ from typing import Union
 
 # Third-party imports
 import structlog
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError as PydanticValidationError
 
 # Local application imports
 from ..models.errors import (
+    AuthenticationError,
     CodeInterpreterException,
+    ErrorDetail,
     ErrorResponse,
     ErrorType,
-    ErrorDetail,
-    ValidationError,
-    AuthenticationError,
     ServiceUnavailableError,
+    ValidationError,
 )
 
 logger = structlog.get_logger(__name__)
@@ -32,9 +32,7 @@ def generate_request_id() -> str:
     return gen_id()
 
 
-async def code_interpreter_exception_handler(
-    request: Request, exc: CodeInterpreterException
-) -> JSONResponse:
+async def code_interpreter_exception_handler(request: Request, exc: CodeInterpreterException) -> JSONResponse:
     """Handle custom CodeInterpreterException instances."""
 
     # Generate request ID if not present
@@ -49,17 +47,12 @@ async def code_interpreter_exception_handler(
         "request_id": exc.request_id,
         "path": request.url.path,
         "method": request.method,
-        "client_ip": (
-            getattr(request.client, "host", "unknown") if request.client else "unknown"
-        ),
+        "client_ip": (getattr(request.client, "host", "unknown") if request.client else "unknown"),
     }
 
     # Add details if present
     if exc.details:
-        log_data["details"] = [
-            {"field": d.field, "message": d.message, "code": d.code}
-            for d in exc.details
-        ]
+        log_data["details"] = [{"field": d.field, "message": d.message, "code": d.code} for d in exc.details]
 
     # Log with appropriate level based on error type
     if exc.status_code >= 500:
@@ -71,9 +64,7 @@ async def code_interpreter_exception_handler(
 
     # Return standardized error response
     error_response = exc.to_response()
-    return JSONResponse(
-        status_code=exc.status_code, content=error_response.model_dump()
-    )
+    return JSONResponse(status_code=exc.status_code, content=error_response.model_dump())
 
 
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
@@ -108,23 +99,17 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         request_id=request_id,
         path=request.url.path,
         method=request.method,
-        client_ip=(
-            getattr(request.client, "host", "unknown") if request.client else "unknown"
-        ),
+        client_ip=(getattr(request.client, "host", "unknown") if request.client else "unknown"),
     )
 
     # Create standardized error response
-    error_response = ErrorResponse(
-        error=str(exc.detail), error_type=error_type, request_id=request_id
-    )
+    error_response = ErrorResponse(error=str(exc.detail), error_type=error_type, request_id=request_id)
 
-    return JSONResponse(
-        status_code=exc.status_code, content=error_response.model_dump()
-    )
+    return JSONResponse(status_code=exc.status_code, content=error_response.model_dump())
 
 
 async def validation_exception_handler(
-    request: Request, exc: Union[RequestValidationError, PydanticValidationError]
+    request: Request, exc: RequestValidationError | PydanticValidationError
 ) -> JSONResponse:
     """Handle request validation errors."""
 
@@ -134,9 +119,7 @@ async def validation_exception_handler(
     details = []
     for error in exc.errors():
         field_path = " -> ".join(str(loc) for loc in error["loc"])
-        details.append(
-            ErrorDetail(field=field_path, message=error["msg"], code=error["type"])
-        )
+        details.append(ErrorDetail(field=field_path, message=error["msg"], code=error["type"]))
 
     # Log validation error
     logger.warning(
@@ -144,12 +127,8 @@ async def validation_exception_handler(
         request_id=request_id,
         path=request.url.path,
         method=request.method,
-        validation_errors=[
-            {"field": d.field, "message": d.message, "code": d.code} for d in details
-        ],
-        client_ip=(
-            getattr(request.client, "host", "unknown") if request.client else "unknown"
-        ),
+        validation_errors=[{"field": d.field, "message": d.message, "code": d.code} for d in details],
+        client_ip=(getattr(request.client, "host", "unknown") if request.client else "unknown"),
     )
 
     # Create standardized error response
@@ -177,9 +156,7 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         exception_type=type(exc).__name__,
         exception_message=str(exc),
         traceback=traceback.format_exc(),
-        client_ip=(
-            getattr(request.client, "host", "unknown") if request.client else "unknown"
-        ),
+        client_ip=(getattr(request.client, "host", "unknown") if request.client else "unknown"),
     )
 
     # Create generic error response (don't expose internal details)
@@ -195,19 +172,13 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
 # Utility functions for common error scenarios
 
 
-def create_validation_error(
-    field: str, message: str, code: str = None
-) -> ValidationError:
+def create_validation_error(field: str, message: str, code: str = None) -> ValidationError:
     """Create a validation error with details."""
     details = [ErrorDetail(field=field, message=message, code=code)]
-    return ValidationError(
-        message=f"Validation failed for field '{field}'", details=details
-    )
+    return ValidationError(message=f"Validation failed for field '{field}'", details=details)
 
 
-def create_resource_error(
-    resource_type: str, resource_id: str = None, operation: str = "access"
-):
+def create_resource_error(resource_type: str, resource_id: str = None, operation: str = "access"):
     """Create a resource not found error."""
     from ..models.errors import ResourceNotFoundError
 
@@ -238,15 +209,11 @@ def handle_kubernetes_error(error: Exception, operation: str = "pod operation"):
     if hasattr(error, "status"):
         status = getattr(error, "status", 500)
         if status == 404:
-            return ResourceNotFoundError(
-                resource="Kubernetes resource", resource_id=error_str
-            )
+            return ResourceNotFoundError(resource="Kubernetes resource", resource_id=error_str)
         elif status == 409:
             from ..models.errors import ResourceConflictError
 
-            return ResourceConflictError(
-                message=f"Kubernetes API conflict: {error_str}"
-            )
+            return ResourceConflictError(message=f"Kubernetes API conflict: {error_str}")
         elif status == 403:
             return ServiceUnavailableError(
                 service="Kubernetes",

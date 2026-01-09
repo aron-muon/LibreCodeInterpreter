@@ -4,7 +4,7 @@ import time
 from typing import Callable, Optional
 
 import structlog
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from ..services.auth import get_auth_service
@@ -91,7 +91,7 @@ class AuthenticationMiddleware:
         scope["state"]["authenticated"] = True
         scope["state"]["api_key"] = api_key
 
-    def _extract_api_key(self, request: Request) -> Optional[str]:
+    def _extract_api_key(self, request: Request) -> str | None:
         """Extract API key from request headers."""
         # Check x-api-key header first
         api_key = request.headers.get("x-api-key")

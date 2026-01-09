@@ -1,14 +1,14 @@
 """Dashboard metrics API endpoints for advanced analytics."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel
 
 from ..config import settings
-from ..services.sqlite_metrics import sqlite_metrics_service
 from ..services.api_key_manager import get_api_key_manager
+from ..services.sqlite_metrics import sqlite_metrics_service
 
 router = APIRouter(prefix="/admin/metrics", tags=["admin-metrics"])
 
@@ -31,11 +31,11 @@ async def verify_master_key(x_api_key: str = Header(...)):
 
 def get_date_range(
     period: str,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
 ) -> tuple[datetime, datetime]:
     """Calculate date range from period or custom dates."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     end = end_date or now
 
     if start_date:
@@ -84,24 +84,24 @@ class SummaryResponse(BaseModel):
 
 
 class LanguageUsageResponse(BaseModel):
-    by_language: Dict[str, int]
-    by_api_key: Dict[str, int]
-    matrix: Dict[str, Dict[str, int]]
+    by_language: dict[str, int]
+    by_api_key: dict[str, int]
+    matrix: dict[str, dict[str, int]]
 
 
 class TimeSeriesResponse(BaseModel):
-    timestamps: List[str]
-    executions: List[int]
-    success_rate: List[float]
-    avg_duration: List[float]
+    timestamps: list[str]
+    executions: list[int]
+    success_rate: list[float]
+    avg_duration: list[float]
     granularity: str
 
 
 class HeatmapResponse(BaseModel):
-    matrix: List[List[int]]
+    matrix: list[list[int]]
     max_value: int
-    days: List[str]
-    hours: List[int]
+    days: list[str]
+    hours: list[int]
 
 
 class ApiKeyFilterOption(BaseModel):
@@ -118,17 +118,15 @@ class ApiKeyFilterOption(BaseModel):
 @router.get("/summary", response_model=SummaryResponse)
 async def get_metrics_summary(
     period: Literal["hour", "day", "week", "month"] = "day",
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    api_key_hash: Optional[str] = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    api_key_hash: str | None = None,
     _: str = Depends(verify_master_key),
 ):
     """Get summary statistics for the selected period."""
     start, end = get_date_range(period, start_date, end_date)
 
-    stats = await sqlite_metrics_service.get_summary_stats(
-        start=start, end=end, api_key_hash=api_key_hash
-    )
+    stats = await sqlite_metrics_service.get_summary_stats(start=start, end=end, api_key_hash=api_key_hash)
 
     return SummaryResponse(
         total_executions=stats.get("total_executions", 0),
@@ -148,9 +146,9 @@ async def get_metrics_summary(
 @router.get("/languages", response_model=LanguageUsageResponse)
 async def get_language_metrics(
     period: Literal["hour", "day", "week", "month"] = "day",
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    api_key_hash: Optional[str] = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    api_key_hash: str | None = None,
     stack_by_api_key: bool = False,
     _: str = Depends(verify_master_key),
 ):
@@ -174,9 +172,9 @@ async def get_language_metrics(
 @router.get("/time-series", response_model=TimeSeriesResponse)
 async def get_time_series(
     period: Literal["hour", "day", "week", "month"] = "day",
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    api_key_hash: Optional[str] = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    api_key_hash: str | None = None,
     _: str = Depends(verify_master_key),
 ):
     """Get time-series data for line charts."""
@@ -202,9 +200,9 @@ async def get_time_series(
 @router.get("/heatmap", response_model=HeatmapResponse)
 async def get_activity_heatmap(
     period: Literal["hour", "day", "week", "month"] = "week",
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    api_key_hash: Optional[str] = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    api_key_hash: str | None = None,
     _: str = Depends(verify_master_key),
 ):
     """Get hourly activity heatmap data.
@@ -215,9 +213,7 @@ async def get_activity_heatmap(
     effective_period = period if period in ("week", "month") else "week"
     start, end = get_date_range(effective_period, start_date, end_date)
 
-    data = await sqlite_metrics_service.get_heatmap_data(
-        start=start, end=end, api_key_hash=api_key_hash
-    )
+    data = await sqlite_metrics_service.get_heatmap_data(start=start, end=end, api_key_hash=api_key_hash)
 
     return HeatmapResponse(
         matrix=data.get("matrix", [[0] * 24 for _ in range(7)]),
@@ -227,7 +223,7 @@ async def get_activity_heatmap(
     )
 
 
-@router.get("/api-keys", response_model=List[ApiKeyFilterOption])
+@router.get("/api-keys", response_model=list[ApiKeyFilterOption])
 async def get_api_keys_for_filter(_: str = Depends(verify_master_key)):
     """Get list of API keys for filter dropdown (includes env keys)."""
     # Get API keys from manager (with names), including env keys
@@ -277,16 +273,14 @@ async def get_api_keys_for_filter(_: str = Depends(verify_master_key)):
 @router.get("/top-languages")
 async def get_top_languages(
     period: Literal["hour", "day", "week", "month"] = "day",
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
     limit: int = Query(5, ge=1, le=20),
     _: str = Depends(verify_master_key),
 ):
     """Get top languages by execution count."""
     start, end = get_date_range(period, start_date, end_date)
 
-    languages = await sqlite_metrics_service.get_top_languages(
-        start=start, end=end, limit=limit
-    )
+    languages = await sqlite_metrics_service.get_top_languages(start=start, end=end, limit=limit)
 
     return {"languages": languages, "period": period}

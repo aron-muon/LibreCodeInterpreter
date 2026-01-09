@@ -5,12 +5,11 @@ from typing import Optional
 
 # Third-party imports
 import structlog
-from fastapi import Request, HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 # Local application imports
 from ..services.auth import get_auth_service
-
 
 logger = structlog.get_logger(__name__)
 security = HTTPBearer(auto_error=False)
@@ -18,7 +17,7 @@ security = HTTPBearer(auto_error=False)
 
 async def verify_api_key(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> str:
     """
     Verify API key authentication.
@@ -56,8 +55,8 @@ async def verify_api_key(
 
 async def verify_api_key_optional(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-) -> Optional[str]:
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> str | None:
     """
     Optional API key verification for endpoints that may not require authentication.
     Returns None if no API key is provided, raises exception if invalid key is provided.
@@ -87,8 +86,8 @@ async def get_current_user(api_key: str = Depends(verify_api_key)) -> Authentica
 
 
 async def get_current_user_optional(
-    api_key: Optional[str] = Depends(verify_api_key_optional),
-) -> Optional[AuthenticatedUser]:
+    api_key: str | None = Depends(verify_api_key_optional),
+) -> AuthenticatedUser | None:
     """Get the current authenticated user (optional)."""
     if api_key:
         return AuthenticatedUser(api_key)

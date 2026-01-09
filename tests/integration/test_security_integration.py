@@ -1,12 +1,13 @@
 """Integration tests for authentication and security middleware."""
 
+import json
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
-import json
 
-from src.main import app
 from src.config import settings
+from src.main import app
 
 
 class TestSecurityIntegration:
@@ -94,9 +95,7 @@ class TestSecurityIntegration:
         # Create a large payload (this is a basic test)
         large_data = {"data": "x" * 1000}
 
-        response = client.post(
-            "/sessions", json=large_data, headers={"x-api-key": "test-key"}
-        )
+        response = client.post("/sessions", json=large_data, headers={"x-api-key": "test-key"})
 
         # Should either process or fail with auth, not with size limit for this small payload
         assert response.status_code != 413
@@ -119,9 +118,7 @@ class TestSecurityIntegration:
         response1 = client.get("/sessions", headers={"x-api-key": test_key})
 
         # Test Authorization Bearer header
-        response2 = client.get(
-            "/sessions", headers={"Authorization": f"Bearer {test_key}"}
-        )
+        response2 = client.get("/sessions", headers={"Authorization": f"Bearer {test_key}"})
 
         # Both should have same result (not 401)
         assert response1.status_code == response2.status_code

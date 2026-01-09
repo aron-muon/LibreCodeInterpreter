@@ -11,12 +11,12 @@ immediately after execution by the orchestrator. This scheduler handles:
 """
 
 import asyncio
-from typing import Dict, Set, Optional
+from typing import Dict, Optional, Set
 
 import structlog
 
-from ..core.events import event_bus, ExecutionCompleted, SessionDeleted
 from ..config import settings
+from ..core.events import ExecutionCompleted, SessionDeleted, event_bus
 
 logger = structlog.get_logger(__name__)
 
@@ -37,18 +37,16 @@ class CleanupScheduler:
             delay_seconds: How long to wait after execution before cleanup
         """
         self.delay_seconds = delay_seconds
-        self._pending_cleanups: Dict[str, asyncio.Task] = {}
-        self._cleaned_sessions: Set[str] = set()
+        self._pending_cleanups: dict[str, asyncio.Task] = {}
+        self._cleaned_sessions: set[str] = set()
         self._execution_service = None
         self._file_service = None
         self._state_archival_service = None
-        self._archival_task: Optional[asyncio.Task] = None
+        self._archival_task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
         self._started = False
 
-    def set_services(
-        self, execution_service, file_service, state_archival_service=None
-    ):
+    def set_services(self, execution_service, file_service, state_archival_service=None):
         """Set service references for cleanup operations."""
         self._execution_service = execution_service
         self._file_service = file_service
@@ -60,9 +58,7 @@ class CleanupScheduler:
         Note: With simplified pool, pods are destroyed immediately
         after execution. Manager reference is no longer used for cleanup.
         """
-        logger.info(
-            "Cleanup scheduler initialized (pods destroyed after each execution)"
-        )
+        logger.info("Cleanup scheduler initialized (pods destroyed after each execution)")
 
     def start(self):
         """Start listening for events and archival task."""
@@ -165,9 +161,7 @@ class CleanupScheduler:
             delay_seconds = self.delay_seconds
 
         async def do_schedule():
-            event = ExecutionCompleted(
-                execution_id="manual", session_id=session_id, success=True
-            )
+            event = ExecutionCompleted(execution_id="manual", session_id=session_id, success=True)
             await self._on_execution_completed(event)
 
         asyncio.create_task(do_schedule())
@@ -206,9 +200,7 @@ class CleanupScheduler:
 
                 if self._archival_cleanup_counter >= 6:
                     self._archival_cleanup_counter = 0
-                    cleanup_result = (
-                        await self._state_archival_service.cleanup_expired_archives()
-                    )
+                    cleanup_result = await self._state_archival_service.cleanup_expired_archives()
                     if cleanup_result.get("deleted", 0) > 0:
                         logger.info(
                             "Expired archive cleanup completed",

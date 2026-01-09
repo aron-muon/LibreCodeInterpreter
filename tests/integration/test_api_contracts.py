@@ -5,18 +5,18 @@ This test suite documents and verifies the exact API contract behavior
 to ensure 100% compatibility after architectural refactoring.
 """
 
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime, timezone, timedelta
 import io
 import json
+from datetime import UTC, datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from fastapi.testclient import TestClient
 
 from src.main import app
-from src.models import CodeExecution, ExecutionStatus, ExecutionOutput, OutputType
-from src.models.session import Session, SessionStatus
+from src.models import CodeExecution, ExecutionOutput, ExecutionStatus, OutputType
 from src.models.files import FileInfo
-
+from src.models.session import Session, SessionStatus
 
 # All 12 supported languages
 SUPPORTED_LANGUAGES = [
@@ -53,9 +53,9 @@ def mock_session():
     return Session(
         session_id="test-session-123",
         status=SessionStatus.ACTIVE,
-        created_at=datetime.now(timezone.utc),
-        last_activity=datetime.now(timezone.utc),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+        created_at=datetime.now(UTC),
+        last_activity=datetime.now(UTC),
+        expires_at=datetime.now(UTC) + timedelta(hours=24),
         metadata={"entity_id": "test-entity"},
     )
 
@@ -70,9 +70,7 @@ def mock_session_service(mock_session):
     return service
 
 
-def create_mock_execution(
-    language: str, stdout: str = "output", stderr: str = ""
-) -> CodeExecution:
+def create_mock_execution(language: str, stdout: str = "output", stderr: str = "") -> CodeExecution:
     """Helper to create mock execution for any language."""
     outputs = []
     if stdout:
@@ -80,7 +78,7 @@ def create_mock_execution(
             ExecutionOutput(
                 type=OutputType.STDOUT,
                 content=stdout,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
         )
     if stderr:
@@ -88,7 +86,7 @@ def create_mock_execution(
             ExecutionOutput(
                 type=OutputType.STDERR,
                 content=stderr,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
         )
 
@@ -142,9 +140,9 @@ def mock_file_service():
 def mock_dependencies(mock_session_service, mock_execution_service, mock_file_service):
     """Mock all dependencies for testing."""
     from src.dependencies.services import (
-        get_session_service,
         get_execution_service,
         get_file_service,
+        get_session_service,
     )
 
     app.dependency_overrides[get_session_service] = lambda: mock_session_service
@@ -185,16 +183,12 @@ class TestExecRequestFormat:
         response = client.post("/exec", json=request_data, headers=auth_headers)
         assert response.status_code == 200
 
-    def test_exec_with_file_references(
-        self, client, auth_headers, mock_execution_service
-    ):
+    def test_exec_with_file_references(self, client, auth_headers, mock_execution_service):
         """Test request with file references."""
         request_data = {
             "code": "with open('data.txt') as f: print(f.read())",
             "lang": "py",
-            "files": [
-                {"id": "file-123", "session_id": "session-456", "name": "data.txt"}
-            ],
+            "files": [{"id": "file-123", "session_id": "session-456", "name": "data.txt"}],
         }
 
         response = client.post("/exec", json=request_data, headers=auth_headers)
@@ -233,16 +227,12 @@ class TestExecRequestFormat:
 
     def test_exec_missing_lang_rejected(self, client, auth_headers):
         """Test that missing lang field is rejected."""
-        response = client.post(
-            "/exec", json={"code": "print('test')"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "print('test')"}, headers=auth_headers)
         assert response.status_code == 422
 
     def test_exec_empty_code_rejected(self, client, auth_headers):
         """Test that empty code is rejected."""
-        response = client.post(
-            "/exec", json={"code": "", "lang": "py"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "", "lang": "py"}, headers=auth_headers)
         # API returns 400 for empty code (application-level validation)
         assert response.status_code == 400
 
@@ -252,9 +242,7 @@ class TestExecResponseFormat:
 
     def test_response_has_required_fields(self, client, auth_headers):
         """Test that response has all required LibreChat fields."""
-        response = client.post(
-            "/exec", json={"code": "print('test')", "lang": "py"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "print('test')", "lang": "py"}, headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -271,9 +259,7 @@ class TestExecResponseFormat:
         assert isinstance(data["stdout"], str)
         assert isinstance(data["stderr"], str)
 
-    def test_response_stdout_ends_with_newline(
-        self, client, auth_headers, mock_execution_service
-    ):
+    def test_response_stdout_ends_with_newline(self, client, auth_headers, mock_execution_service):
         """Test that stdout ends with newline for LibreChat compatibility."""
         mock_execution_service.execute_code.return_value = (
             create_mock_execution("py", "Hello, World!"),  # No trailing newline in mock
@@ -293,9 +279,7 @@ class TestExecResponseFormat:
         # LibreChat expects stdout to end with newline
         assert data["stdout"].endswith("\n")
 
-    def test_response_files_format(
-        self, client, auth_headers, mock_execution_service, mock_file_service
-    ):
+    def test_response_files_format(self, client, auth_headers, mock_execution_service, mock_file_service):
         """Test that generated files have correct format."""
         # Mock execution with file output
         execution_with_file = CodeExecution(
@@ -311,7 +295,7 @@ class TestExecResponseFormat:
                     content="/workspace/output.txt",
                     mime_type="text/plain",
                     size=100,
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                 )
             ],
         )
@@ -338,9 +322,7 @@ class TestExecResponseFormat:
             )
         ]
 
-        response = client.post(
-            "/exec", json={"code": "write file", "lang": "py"}, headers=auth_headers
-        )
+        response = client.post("/exec", json={"code": "write file", "lang": "py"}, headers=auth_headers)
 
         data = response.json()
         assert len(data["files"]) >= 1
@@ -448,16 +430,12 @@ class TestFileListContract:
 class TestFileDownloadContract:
     """Test file download endpoint contract."""
 
-    def test_download_returns_streaming_response(
-        self, client, auth_headers, mock_file_service
-    ):
+    def test_download_returns_streaming_response(self, client, auth_headers, mock_file_service):
         """Test that download returns streaming response with file content."""
         # Mock the file service to return file content
         mock_file_service.get_file_content.return_value = b"test file content"
 
-        response = client.get(
-            "/download/test-session/test-file-id-123", headers=auth_headers
-        )
+        response = client.get("/download/test-session/test-file-id-123", headers=auth_headers)
 
         # API returns streaming response (200), not redirect
         assert response.status_code == 200
@@ -467,9 +445,7 @@ class TestFileDownloadContract:
         """Test download of non-existent file."""
         mock_file_service.get_file_info.return_value = None
 
-        response = client.get(
-            "/download/test-session/nonexistent", headers=auth_headers
-        )
+        response = client.get("/download/test-session/nonexistent", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -479,9 +455,7 @@ class TestFileDeleteContract:
 
     def test_delete_success(self, client, auth_headers, mock_file_service):
         """Test successful file deletion."""
-        response = client.delete(
-            "/files/test-session/test-file-id-123", headers=auth_headers
-        )
+        response = client.delete("/files/test-session/test-file-id-123", headers=auth_headers)
 
         # API returns 200 with empty body for LibreChat compatibility
         assert response.status_code == 200
@@ -490,9 +464,7 @@ class TestFileDeleteContract:
         """Test deletion of non-existent file."""
         mock_file_service.get_file_info.return_value = None
 
-        response = client.delete(
-            "/files/test-session/nonexistent", headers=auth_headers
-        )
+        response = client.delete("/files/test-session/nonexistent", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -558,9 +530,7 @@ class TestErrorResponseFormat:
         # Download endpoint uses get_file_info to check if file exists
         mock_file_service.get_file_info.return_value = None
 
-        response = client.get(
-            "/download/test-session/nonexistent", headers=auth_headers
-        )
+        response = client.get("/download/test-session/nonexistent", headers=auth_headers)
 
         assert response.status_code == 404
         data = response.json()
@@ -580,27 +550,21 @@ class TestAuthenticationMethods:
     def test_x_api_key_header(self, client):
         """Test x-api-key header authentication."""
         headers = {"x-api-key": "test-api-key-for-testing-12345"}
-        response = client.post(
-            "/exec", json={"code": "print('test')", "lang": "py"}, headers=headers
-        )
+        response = client.post("/exec", json={"code": "print('test')", "lang": "py"}, headers=headers)
 
         assert response.status_code != 401
 
     def test_authorization_bearer(self, client):
         """Test Authorization Bearer authentication."""
         headers = {"Authorization": "Bearer test-api-key-for-testing-12345"}
-        response = client.post(
-            "/exec", json={"code": "print('test')", "lang": "py"}, headers=headers
-        )
+        response = client.post("/exec", json={"code": "print('test')", "lang": "py"}, headers=headers)
 
         assert response.status_code != 401
 
     def test_authorization_apikey(self, client):
         """Test Authorization ApiKey authentication."""
         headers = {"Authorization": "ApiKey test-api-key-for-testing-12345"}
-        response = client.post(
-            "/exec", json={"code": "print('test')", "lang": "py"}, headers=headers
-        )
+        response = client.post("/exec", json={"code": "print('test')", "lang": "py"}, headers=headers)
 
         assert response.status_code != 401
 
@@ -613,8 +577,6 @@ class TestAuthenticationMethods:
     def test_invalid_auth_rejected(self, client):
         """Test requests with invalid auth are rejected."""
         headers = {"x-api-key": "invalid-key"}
-        response = client.post(
-            "/exec", json={"code": "print('test')", "lang": "py"}, headers=headers
-        )
+        response = client.post("/exec", json={"code": "print('test')", "lang": "py"}, headers=headers)
 
         assert response.status_code == 401

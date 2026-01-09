@@ -1,9 +1,11 @@
 """Integration tests for authentication workflows."""
 
+import time
+from datetime import UTC
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
-import time
 
 from src.main import app
 
@@ -18,9 +20,9 @@ def client():
 def mock_services():
     """Mock all services for testing."""
     from src.dependencies.services import (
-        get_session_service,
         get_execution_service,
         get_file_service,
+        get_session_service,
     )
 
     mock_session_service = AsyncMock()
@@ -134,8 +136,9 @@ class TestAPIKeyAuthentication:
         headers = {"x-api-key": "test-api-key-for-testing-12345"}
 
         # Mock successful execution
-        from src.models import CodeExecution, ExecutionStatus
         from datetime import datetime, timezone
+
+        from src.models import CodeExecution, ExecutionStatus
 
         mock_execution = CodeExecution(
             execution_id="test-exec",
@@ -159,9 +162,9 @@ class TestAPIKeyAuthentication:
         mock_session = Session(
             session_id="test-session",
             status=SessionStatus.ACTIVE,
-            created_at=datetime.now(timezone.utc),
-            last_activity=datetime.now(timezone.utc),
-            expires_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            last_activity=datetime.now(UTC),
+            expires_at=datetime.now(UTC),
             metadata={},
         )
         mock_services["session"].create_session.return_value = mock_session
@@ -191,16 +194,17 @@ class TestAPIKeyAuthentication:
         # Mock file upload
         mock_services["file"].store_uploaded_file.return_value = "file-123"
         # Mock get_file_info needed for upload response
-        from src.models.files import FileInfo
         from datetime import datetime, timezone
+
+        from src.models.files import FileInfo
 
         mock_services["file"].get_file_info.return_value = FileInfo(
             file_id="file-123",
             filename="test.txt",
             path="/tmp/test.txt",
             size=12,
-            created_at=datetime.now(timezone.utc),
-            modified_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            modified_at=datetime.now(UTC),
             content_type="text/plain",
         )
 

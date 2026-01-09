@@ -58,7 +58,6 @@ Before running tests, ensure:
 
    ```bash
    just install
-   # Or: uv sync
    ```
 
 2. **For integration tests, infrastructure running:**
@@ -72,14 +71,9 @@ Before running tests, ensure:
 ```bash
 # Run all tests
 just test
-# Or: uv run pytest tests/
-
-# With verbose output
-uv run pytest -v tests/
 
 # With coverage report
 just test-cov
-# Or: uv run pytest --cov=src tests/
 ```
 
 ### Running Unit Tests Only
@@ -87,13 +81,12 @@ just test-cov
 ```bash
 # Run all unit tests
 just test-unit
-# Or: uv run pytest tests/unit/
 
 # Run a specific test file
-uv run pytest tests/unit/test_execution_service.py
+just test-file tests/unit/test_execution_service.py
 
 # Run a specific test function
-uv run pytest tests/unit/test_execution_service.py::test_execute_python_code
+just test-file tests/unit/test_execution_service.py::test_execute_python_code
 ```
 
 ### Running Integration Tests Only
@@ -101,26 +94,11 @@ uv run pytest tests/unit/test_execution_service.py::test_execute_python_code
 ```bash
 # Run all integration tests
 just test-integration
-# Or: uv run pytest tests/integration/
 
-# Run core integration tests
-uv run pytest tests/integration/test_api_contracts.py \
-       tests/integration/test_librechat_compat.py \
-       tests/integration/test_container_behavior.py -v
+# Run specific integration test files
+just test-file tests/integration/test_api_contracts.py
 ```
 
-### Running Tests by Marker
-
-```bash
-# Run only slow tests
-uv run pytest -m slow
-
-# Skip slow tests
-uv run pytest -m "not slow"
-
-# Run only Python-related tests
-uv run pytest -k "python"
-```
 
 ---
 
@@ -279,7 +257,7 @@ A dedicated performance testing script is available:
 
 ```bash
 # Run performance tests
-uv run python scripts/perf_test.py
+just perf-test
 ```
 
 ### What Performance Tests Measure
@@ -319,7 +297,6 @@ Generate coverage reports:
 ```bash
 # Generate HTML coverage report
 just test-cov
-# Or: uv run pytest --cov=src --cov-report=html tests/
 
 # View report
 open htmlcov/index.html
@@ -338,33 +315,19 @@ open htmlcov/index.html
 
 ## CI/CD Integration
 
-For CI/CD pipelines, use:
-
-```bash
-# Run tests with JUnit XML output
-uv run pytest --junitxml=test-results.xml tests/
-
-# Run with coverage in CI format
-uv run pytest --cov=src --cov-report=xml tests/
-```
+For CI/CD pipelines, see `.github/workflows/lint.yml` for examples of using `just` commands in GitHub Actions.
 
 ### GitHub Actions Example
 
 ```yaml
 - name: Install uv
-  run: |
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    echo "$HOME/.local/bin" >> $GITHUB_PATH
+  uses: astral-sh/setup-uv@v5
+
+- name: Install just
+  uses: taiki-e/install-action@just
 
 - name: Run Tests
-  run: |
-    uv sync
-    uv run pytest --cov=src --cov-report=xml tests/unit/
-
-- name: Upload Coverage
-  uses: codecov/codecov-action@v3
-  with:
-    files: ./coverage.xml
+  run: just test-unit
 ```
 
 ---

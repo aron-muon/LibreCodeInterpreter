@@ -5,14 +5,13 @@ This package provides code execution functionality using Kubernetes pods:
 - output.py: Output processing and validation
 """
 
-from .runner import CodeExecutionRunner
-from .output import OutputProcessor
-
 # Backward compatibility: CodeExecutionService is an alias for CodeExecutionRunner
 # that implements the ExecutionServiceInterface
 from ..interfaces import ExecutionServiceInterface
-from .runner import CodeExecutionRunner as _Runner
 from ..kubernetes import KubernetesManager
+from .output import OutputProcessor
+from .runner import CodeExecutionRunner
+from .runner import CodeExecutionRunner as _Runner
 
 
 class CodeExecutionService(_Runner, ExecutionServiceInterface):
@@ -22,9 +21,7 @@ class CodeExecutionService(_Runner, ExecutionServiceInterface):
     CodeExecutionService API while using the Kubernetes implementation.
     """
 
-    async def execute_code(
-        self, session_id, request, files=None, initial_state=None, capture_state=True
-    ):
+    async def execute_code(self, session_id, request, files=None, initial_state=None, capture_state=True):
         """Execute code in a session (implements ExecutionServiceInterface).
 
         Args:
@@ -39,9 +36,7 @@ class CodeExecutionService(_Runner, ExecutionServiceInterface):
             PodHandle returned directly for thread-safe file retrieval in concurrent requests.
             new_state is base64-encoded cloudpickle, or None if not captured.
         """
-        return await self.execute(
-            session_id, request, files, initial_state, capture_state
-        )
+        return await self.execute(session_id, request, files, initial_state, capture_state)
 
     def _normalize_container_filename(self, filename):
         """Backward compatibility alias."""
@@ -61,9 +56,7 @@ class CodeExecutionService(_Runner, ExecutionServiceInterface):
 
     def _determine_execution_status(self, exit_code, stderr, execution_time_ms):
         """Backward compatibility alias."""
-        return OutputProcessor.determine_execution_status(
-            exit_code, stderr, execution_time_ms
-        )
+        return OutputProcessor.determine_execution_status(exit_code, stderr, execution_time_ms)
 
     def _format_error_message(self, exit_code, stderr):
         """Backward compatibility alias."""

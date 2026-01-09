@@ -1,15 +1,16 @@
 """Admin API endpoints for dashboard."""
 
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Depends, Header, Query
+from datetime import UTC, datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..config import settings
+from ..models.api_key import RateLimits as RateLimitsModel
 from ..services.api_key_manager import get_api_key_manager
 from ..services.detailed_metrics import get_detailed_metrics_service
 from ..services.health import health_service
-from ..models.api_key import RateLimits as RateLimitsModel
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -18,23 +19,23 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 class RateLimitsUpdate(BaseModel):
-    per_second: Optional[int] = None
-    per_minute: Optional[int] = None
-    hourly: Optional[int] = None
-    daily: Optional[int] = None
-    monthly: Optional[int] = None
+    per_second: int | None = None
+    per_minute: int | None = None
+    hourly: int | None = None
+    daily: int | None = None
+    monthly: int | None = None
 
 
 class ApiKeyCreate(BaseModel):
     name: str = Field(..., min_length=1)
-    rate_limits: Optional[RateLimitsUpdate] = None
-    metadata: Optional[Dict[str, str]] = None
+    rate_limits: RateLimitsUpdate | None = None
+    metadata: dict[str, str] | None = None
 
 
 class ApiKeyUpdate(BaseModel):
-    name: Optional[str] = None
-    enabled: Optional[bool] = None
-    rate_limits: Optional[RateLimitsUpdate] = None
+    name: str | None = None
+    enabled: bool | None = None
+    rate_limits: RateLimitsUpdate | None = None
 
 
 class ApiKeyResponse(BaseModel):
@@ -43,9 +44,9 @@ class ApiKeyResponse(BaseModel):
     name: str
     created_at: datetime
     enabled: bool
-    rate_limits: Dict[str, Optional[int]]
-    metadata: Dict[str, str]
-    last_used_at: Optional[datetime] = None
+    rate_limits: dict[str, int | None]
+    metadata: dict[str, str]
+    last_used_at: datetime | None = None
     usage_count: int
     source: str = "managed"  # "managed" or "environment"
 
@@ -69,7 +70,7 @@ async def verify_master_key(x_api_key: str = Header(...)):
 # --- Endpoints ---
 
 
-@router.get("/keys", response_model=List[ApiKeyResponse])
+@router.get("/keys", response_model=list[ApiKeyResponse])
 async def list_keys(_: str = Depends(verify_master_key)):
     """List all API keys including environment keys (read-only)."""
     manager = await get_api_key_manager()
@@ -92,7 +93,7 @@ async def list_keys(_: str = Depends(verify_master_key)):
     ]
 
 
-@router.post("/keys", response_model=Dict[str, Any])
+@router.post("/keys", response_model=dict[str, Any])
 async def create_key(data: ApiKeyCreate, _: str = Depends(verify_master_key)):
     """Create a new API key."""
     manager = await get_api_key_manager()
@@ -107,9 +108,7 @@ async def create_key(data: ApiKeyCreate, _: str = Depends(verify_master_key)):
             monthly=data.rate_limits.monthly,
         )
 
-    full_key, record = await manager.create_key(
-        name=data.name, rate_limits=rate_limits, metadata=data.metadata
-    )
+    full_key, record = await manager.create_key(name=data.name, rate_limits=rate_limits, metadata=data.metadata)
 
     return {
         "api_key": full_key,
@@ -129,9 +128,7 @@ async def create_key(data: ApiKeyCreate, _: str = Depends(verify_master_key)):
 
 
 @router.patch("/keys/{key_hash}", response_model=bool)
-async def update_key(
-    key_hash: str, data: ApiKeyUpdate, _: str = Depends(verify_master_key)
-):
+async def update_key(key_hash: str, data: ApiKeyUpdate, _: str = Depends(verify_master_key)):
     """Update an API key."""
     manager = await get_api_key_manager()
 
@@ -153,9 +150,7 @@ async def update_key(
             monthly=data.rate_limits.monthly,
         )
 
-    success = await manager.update_key(
-        key_hash=key_hash, enabled=data.enabled, rate_limits=rate_limits, name=data.name
-    )
+    success = await manager.update_key(key_hash=key_hash, enabled=data.enabled, rate_limits=rate_limits, name=data.name)
 
     if not success:
         raise HTTPException(status_code=404, detail="Key not found")
@@ -185,9 +180,7 @@ async def revoke_key(key_hash: str, _: str = Depends(verify_master_key)):
 
 
 @router.get("/stats", summary="Admin dashboard statistics")
-async def get_admin_stats(
-    hours: int = Query(24, ge=1, le=168), _: str = Depends(verify_master_key)
-):
+async def get_admin_stats(hours: int = Query(24, ge=1, le=168), _: str = Depends(verify_master_key)):
     """Get aggregated statistics for the admin dashboard."""
     metrics_service = get_detailed_metrics_service()
 
@@ -206,16 +199,12 @@ async def get_admin_stats(
 
     return {
         "summary": summary.to_dict(),
-        "by_language": {
-            lang: stats.to_dict() for lang, stats in language_stats.items()
-        },
+        "by_language": {lang: stats.to_dict() for lang, stats in language_stats.items()},
         "pool_stats": pool_stats.to_dict(),
         "health": {
             "status": overall_health.value,
-            "services": {
-                name: result.to_dict() for name, result in health_results.items()
-            },
+            "services": {name: result.to_dict() for name, result in health_results.items()},
         },
         "period_hours": hours,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }

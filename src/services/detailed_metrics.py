@@ -8,8 +8,8 @@ Provides extended metrics tracking with:
 """
 
 import json
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Any
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 import redis.asyncio as redis
 import structlog
@@ -17,12 +17,12 @@ import structlog
 from ..config import settings
 from ..core.pool import redis_pool
 from ..models.metrics import (
+    AggregatedMetrics,
+    ApiKeyUsageMetrics,
     DetailedExecutionMetrics,
     LanguageMetrics,
-    ApiKeyUsageMetrics,
-    PoolMetricsSummary,
-    AggregatedMetrics,
     MetricsSummary,
+    PoolMetricsSummary,
 )
 
 logger = structlog.get_logger(__name__)
@@ -43,22 +43,22 @@ class DetailedMetricsService:
     HOURLY_TTL = 7 * 24 * 3600  # 7 days
     DAILY_TTL = 30 * 24 * 3600  # 30 days
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         """Initialize the detailed metrics service.
 
         Args:
             redis_client: Optional Redis client, uses shared pool if not provided
         """
         self._redis = redis_client
-        self._in_memory_buffer: List[DetailedExecutionMetrics] = []
+        self._in_memory_buffer: list[DetailedExecutionMetrics] = []
 
     def register_event_handlers(self) -> None:
         """Register event handlers for pool metrics."""
         from ..core.events import (
-            event_bus,
             ContainerAcquiredFromPool,
             ContainerCreatedFresh,
             PoolExhausted,
+            event_bus,
         )
 
         @event_bus.subscribe(ContainerAcquiredFromPool)
@@ -76,9 +76,7 @@ class DetailedMetricsService:
 
         @event_bus.subscribe(PoolExhausted)
         async def handle_pool_exhaustion(event: PoolExhausted):
-            await self.record_pool_event(
-                event_type="exhaustion", language=event.language
-            )
+            await self.record_pool_event(event_type="exhaustion", language=event.language)
 
         logger.info("Registered pool event handlers for metrics")
 
@@ -128,9 +126,7 @@ class DetailedMetricsService:
                 "Recorded detailed metrics",
                 execution_id=metrics.execution_id,
                 language=metrics.language,
-                api_key_hash=(
-                    metrics.api_key_hash[:8] if metrics.api_key_hash else "unknown"
-                ),
+                api_key_hash=(metrics.api_key_hash[:8] if metrics.api_key_hash else "unknown"),
             )
 
         except Exception as e:
@@ -140,9 +136,7 @@ class DetailedMetricsService:
             if len(self._in_memory_buffer) > self.MAX_BUFFER_SIZE:
                 self._in_memory_buffer = self._in_memory_buffer[-self.MAX_BUFFER_SIZE :]
 
-    async def _update_hourly_aggregates(
-        self, metrics: DetailedExecutionMetrics
-    ) -> None:
+    async def _update_hourly_aggregates(self, metrics: DetailedExecutionMetrics) -> None:
         """Update hourly aggregate counters."""
         hour_key = self._get_hour_key(metrics.timestamp)
         redis_key = f"{self.HOURLY_PREFIX}{hour_key}"
@@ -151,9 +145,7 @@ class DetailedMetricsService:
 
         # Increment counters
         pipe.hincrby(redis_key, "execution_count", 1)
-        pipe.hincrbyfloat(
-            redis_key, "total_execution_time_ms", metrics.execution_time_ms
-        )
+        pipe.hincrbyfloat(redis_key, "total_execution_time_ms", metrics.execution_time_ms)
 
         if metrics.status == "completed":
             pipe.hincrby(redis_key, "success_count", 1)
@@ -189,15 +181,11 @@ class DetailedMetricsService:
     async def _update_api_key_metrics(self, metrics: DetailedExecutionMetrics) -> None:
         """Update per-API-key metrics."""
         hour_key = self._get_hour_key(metrics.timestamp)
-        redis_key = (
-            f"{self.API_KEY_HOURLY_PREFIX}{metrics.api_key_hash[:16]}:hour:{hour_key}"
-        )
+        redis_key = f"{self.API_KEY_HOURLY_PREFIX}{metrics.api_key_hash[:16]}:hour:{hour_key}"
 
         pipe = self.redis.pipeline(transaction=False)
         pipe.hincrby(redis_key, "execution_count", 1)
-        pipe.hincrbyfloat(
-            redis_key, "total_execution_time_ms", metrics.execution_time_ms
-        )
+        pipe.hincrbyfloat(redis_key, "total_execution_time_ms", metrics.execution_time_ms)
 
         if metrics.status == "completed":
             pipe.hincrby(redis_key, "success_count", 1)
@@ -215,9 +203,7 @@ class DetailedMetricsService:
 
         await pipe.execute()
 
-    async def record_pool_event(
-        self, event_type: str, language: str, acquire_time_ms: Optional[float] = None
-    ) -> None:
+    async def record_pool_event(self, event_type: str, language: str, acquire_time_ms: float | None = None) -> None:
         """Record a container pool event.
 
         Args:
@@ -237,24 +223,20 @@ class DetailedMetricsService:
                 pipe.hset(
                     self.POOL_STATS_KEY,
                     "last_exhaustion",
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                 )
 
             pipe.hincrby(self.POOL_STATS_KEY, "total_acquisitions", 1)
 
             if acquire_time_ms:
-                pipe.hincrbyfloat(
-                    self.POOL_STATS_KEY, "total_acquire_time_ms", acquire_time_ms
-                )
+                pipe.hincrbyfloat(self.POOL_STATS_KEY, "total_acquire_time_ms", acquire_time_ms)
 
             await pipe.execute()
 
         except Exception as e:
             logger.warning("Failed to record pool event", error=str(e))
 
-    async def get_hourly_metrics(
-        self, hour: Optional[datetime] = None
-    ) -> Optional[AggregatedMetrics]:
+    async def get_hourly_metrics(self, hour: datetime | None = None) -> AggregatedMetrics | None:
         """Get aggregated metrics for a specific hour.
 
         Args:
@@ -264,7 +246,7 @@ class DetailedMetricsService:
             AggregatedMetrics or None if no data
         """
         if hour is None:
-            hour = datetime.now(timezone.utc)
+            hour = datetime.now(UTC)
 
         hour_key = self._get_hour_key(hour)
         redis_key = f"{self.HOURLY_PREFIX}{hour_key}"
@@ -282,7 +264,7 @@ class DetailedMetricsService:
 
     async def get_metrics_range(
         self, start: datetime, end: datetime, period_type: str = "hourly"
-    ) -> List[AggregatedMetrics]:
+    ) -> list[AggregatedMetrics]:
         """Get aggregated metrics for a time range.
 
         Args:
@@ -305,7 +287,7 @@ class DetailedMetricsService:
 
         return results
 
-    async def get_language_stats(self, hours: int = 24) -> Dict[str, LanguageMetrics]:
+    async def get_language_stats(self, hours: int = 24) -> dict[str, LanguageMetrics]:
         """Get per-language statistics for the last N hours.
 
         Args:
@@ -314,8 +296,8 @@ class DetailedMetricsService:
         Returns:
             Dict mapping language code to LanguageMetrics
         """
-        now = datetime.now(timezone.utc)
-        language_stats: Dict[str, LanguageMetrics] = {}
+        now = datetime.now(UTC)
+        language_stats: dict[str, LanguageMetrics] = {}
 
         for i in range(hours):
             hour = now - timedelta(hours=i)
@@ -344,45 +326,31 @@ class DetailedMetricsService:
                         time_key = f"lang:{lang}:time_ms"
                         error_key = f"lang:{lang}:errors"
 
-                        time_data = data.get(
-                            time_key.encode() if isinstance(key, bytes) else time_key
-                        )
+                        time_data = data.get(time_key.encode() if isinstance(key, bytes) else time_key)
                         if time_data:
                             language_stats[lang].total_execution_time_ms += float(
-                                time_data.decode()
-                                if isinstance(time_data, bytes)
-                                else time_data
+                                time_data.decode() if isinstance(time_data, bytes) else time_data
                             )
 
-                        error_data = data.get(
-                            error_key.encode() if isinstance(key, bytes) else error_key
-                        )
+                        error_data = data.get(error_key.encode() if isinstance(key, bytes) else error_key)
                         if error_data:
                             language_stats[lang].failure_count += int(
-                                error_data.decode()
-                                if isinstance(error_data, bytes)
-                                else error_data
+                                error_data.decode() if isinstance(error_data, bytes) else error_data
                             )
 
             except Exception as e:
-                logger.warning(
-                    "Failed to get language stats for hour", hour=hour_key, error=str(e)
-                )
+                logger.warning("Failed to get language stats for hour", hour=hour_key, error=str(e))
 
         # Calculate derived values
         for stats in language_stats.values():
             stats.success_count = stats.execution_count - stats.failure_count
             if stats.execution_count > 0:
-                stats.avg_execution_time_ms = (
-                    stats.total_execution_time_ms / stats.execution_count
-                )
+                stats.avg_execution_time_ms = stats.total_execution_time_ms / stats.execution_count
                 stats.error_rate = (stats.failure_count / stats.execution_count) * 100
 
         return language_stats
 
-    async def get_api_key_stats(
-        self, api_key_hash: str, hours: int = 24
-    ) -> ApiKeyUsageMetrics:
+    async def get_api_key_stats(self, api_key_hash: str, hours: int = 24) -> ApiKeyUsageMetrics:
         """Get usage statistics for a specific API key.
 
         Args:
@@ -393,14 +361,12 @@ class DetailedMetricsService:
             ApiKeyUsageMetrics
         """
         stats = ApiKeyUsageMetrics(api_key_hash=api_key_hash[:16])
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for i in range(hours):
             hour = now - timedelta(hours=i)
             hour_key = self._get_hour_key(hour)
-            redis_key = (
-                f"{self.API_KEY_HOURLY_PREFIX}{api_key_hash[:16]}:hour:{hour_key}"
-            )
+            redis_key = f"{self.API_KEY_HOURLY_PREFIX}{api_key_hash[:16]}:hour:{hour_key}"
 
             try:
                 data = await self.redis.hgetall(redis_key)
@@ -458,9 +424,7 @@ class DetailedMetricsService:
                         stats.exhaustion_events = int(value_str)
                     elif key_str == "total_acquire_time_ms":
                         if stats.total_acquisitions > 0:
-                            stats.avg_acquire_time_ms = (
-                                float(value_str) / stats.total_acquisitions
-                            )
+                            stats.avg_acquire_time_ms = float(value_str) / stats.total_acquisitions
 
                 # Calculate hit rate
                 if stats.total_acquisitions > 0:
@@ -478,7 +442,7 @@ class DetailedMetricsService:
             MetricsSummary for dashboard display
         """
         summary = MetricsSummary()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         try:
             # Get current hour stats
@@ -497,13 +461,8 @@ class DetailedMetricsService:
 
             # Get language breakdown
             language_stats = await self.get_language_stats(hours=24)
-            sorted_languages = sorted(
-                language_stats.values(), key=lambda x: x.execution_count, reverse=True
-            )[:5]
-            summary.top_languages = [
-                {"language": s.language, "count": s.execution_count}
-                for s in sorted_languages
-            ]
+            sorted_languages = sorted(language_stats.values(), key=lambda x: x.execution_count, reverse=True)[:5]
+            summary.top_languages = [{"language": s.language, "count": s.execution_count} for s in sorted_languages]
 
             # Get pool stats
             pool_stats = await self.get_pool_stats()
@@ -528,9 +487,7 @@ class DetailedMetricsService:
         """Get Redis key suffix for daily period."""
         return dt.strftime("%Y-%m-%d")
 
-    def _parse_hourly_data(
-        self, data: Dict[bytes, bytes], period: str, period_type: str
-    ) -> AggregatedMetrics:
+    def _parse_hourly_data(self, data: dict[bytes, bytes], period: str, period_type: str) -> AggregatedMetrics:
         """Parse Redis hash data into AggregatedMetrics."""
         metrics = AggregatedMetrics(period=period, period_type=period_type)
 
@@ -561,16 +518,14 @@ class DetailedMetricsService:
 
         # Calculate averages
         if metrics.execution_count > 0:
-            metrics.avg_execution_time_ms = (
-                metrics.total_execution_time_ms / metrics.execution_count
-            )
+            metrics.avg_execution_time_ms = metrics.total_execution_time_ms / metrics.execution_count
             metrics.avg_memory_mb = metrics.total_memory_mb / metrics.execution_count
 
         return metrics
 
 
 # Global service instance
-_detailed_metrics_service: Optional[DetailedMetricsService] = None
+_detailed_metrics_service: DetailedMetricsService | None = None
 
 
 def get_detailed_metrics_service() -> DetailedMetricsService:

@@ -5,7 +5,7 @@ using Kubernetes pods with HTTP sidecar communication.
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -15,14 +15,14 @@ from ...config import settings
 from ...config.languages import get_language
 from ...models import (
     CodeExecution,
-    ExecutionStatus,
-    ExecutionOutput,
-    OutputType,
     ExecuteCodeRequest,
+    ExecutionOutput,
+    ExecutionStatus,
+    OutputType,
 )
 from ...utils.id_generator import generate_execution_id
-from ..kubernetes import KubernetesManager, PodHandle, ExecutionResult
-from ..metrics import metrics_collector, ExecutionMetrics
+from ..kubernetes import ExecutionResult, KubernetesManager, PodHandle
+from ..metrics import ExecutionMetrics, metrics_collector
 from .output import OutputProcessor
 
 logger = structlog.get_logger(__name__)
@@ -45,8 +45,8 @@ class CodeExecutionRunner:
         """
         self._kubernetes_manager = kubernetes_manager
         self._manager_started = False
-        self.active_executions: Dict[str, CodeExecution] = {}
-        self.session_handles: Dict[str, PodHandle] = {}
+        self.active_executions: dict[str, CodeExecution] = {}
+        self.session_handles: dict[str, PodHandle] = {}
 
     @property
     def kubernetes_manager(self) -> KubernetesManager:
@@ -61,9 +61,7 @@ class CodeExecutionRunner:
             await self.kubernetes_manager.start()
             self._manager_started = True
 
-    async def _get_pod(
-        self, session_id: str, language: str
-    ) -> Tuple[Optional[PodHandle], str]:
+    async def _get_pod(self, session_id: str, language: str) -> tuple[PodHandle | None, str]:
         """Get pod for execution, using pool if available.
 
         Priority:
@@ -96,10 +94,10 @@ class CodeExecutionRunner:
         self,
         session_id: str,
         request: ExecuteCodeRequest,
-        files: Optional[List[Dict[str, Any]]] = None,
-        initial_state: Optional[str] = None,
+        files: list[dict[str, Any]] | None = None,
+        initial_state: str | None = None,
         capture_state: bool = True,
-    ) -> Tuple[CodeExecution, Optional[PodHandle], Optional[str], List[str], str]:
+    ) -> tuple[CodeExecution, PodHandle | None, str | None, list[str], str]:
         """Execute code in a session with optional state persistence.
 
         Args:
@@ -143,40 +141,36 @@ class CodeExecutionRunner:
                 error=self.kubernetes_manager.get_initialization_error(),
             )
             execution.status = ExecutionStatus.FAILED
-            execution.completed_at = datetime.utcnow()
+            execution.completed_at = datetime.now(UTC)
             execution.error_message = f"Kubernetes unavailable: {self.kubernetes_manager.get_initialization_error()}"
             return execution, None, None, [], "pool_miss"
 
         handle = None
         container_source = "pool_miss"
         new_state = None
-        state_errors: List[str] = []
+        state_errors: list[str] = []
 
         try:
             execution.status = ExecutionStatus.RUNNING
-            execution.started_at = datetime.utcnow()
+            execution.started_at = datetime.now(UTC)
 
             # Execute code using Kubernetes manager
-            start_time = datetime.utcnow()
+            start_time = datetime.now(UTC)
 
             # Use language-specific timeout if not explicitly provided
-            execution_timeout = request.timeout or settings.get_execution_timeout(
-                request.language
+            execution_timeout = request.timeout or settings.get_execution_timeout(request.language)
+
+            result, handle, container_source = await self.kubernetes_manager.execute_code(
+                session_id=session_id,
+                code=request.code,
+                language=request.language,
+                timeout=execution_timeout,
+                files=files,
+                initial_state=initial_state,
+                capture_state=capture_state,
             )
 
-            result, handle, container_source = (
-                await self.kubernetes_manager.execute_code(
-                    session_id=session_id,
-                    code=request.code,
-                    language=request.language,
-                    timeout=execution_timeout,
-                    files=files,
-                    initial_state=initial_state,
-                    capture_state=capture_state,
-                )
-            )
-
-            end_time = datetime.utcnow()
+            end_time = datetime.now(UTC)
             execution_time_ms = int((end_time - start_time).total_seconds() * 1000)
 
             # Extract state from result
@@ -191,16 +185,13 @@ class CodeExecutionRunner:
             if handle:
                 # Only detect files if code likely generates files
                 should_detect_files = files or any(
-                    kw in request.code
-                    for kw in ["open(", "savefig", "to_csv", "write(", ".save("]
+                    kw in request.code for kw in ["open(", "savefig", "to_csv", "write(", ".save("]
                 )
                 if should_detect_files:
                     generated_files = await self._detect_generated_files(handle)
 
             mounted_filenames = self._get_mounted_filenames(files)
-            filtered_files = self._filter_generated_files(
-                generated_files, mounted_filenames
-            )
+            filtered_files = self._filter_generated_files(generated_files, mounted_filenames)
 
             for file_info in filtered_files:
                 if OutputProcessor.validate_generated_file(file_info):
@@ -224,9 +215,7 @@ class CodeExecutionRunner:
             execution.execution_time_ms = execution_time_ms
 
             if execution.status == ExecutionStatus.FAILED:
-                execution.error_message = OutputProcessor.format_error_message(
-                    result.exit_code, result.stderr
-                )
+                execution.error_message = OutputProcessor.format_error_message(result.exit_code, result.stderr)
 
             logger.info(
                 f"Code execution {execution_id} completed: status={execution.status}, "
@@ -248,14 +237,14 @@ class CodeExecutionRunner:
             if handle:
                 self.session_handles[session_id] = handle
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             execution.status = ExecutionStatus.TIMEOUT
-            execution.completed_at = datetime.utcnow()
-            execution.error_message = f"Execution timed out after {request.timeout or settings.max_execution_time} seconds"
+            execution.completed_at = datetime.now(UTC)
+            execution.error_message = (
+                f"Execution timed out after {request.timeout or settings.max_execution_time} seconds"
+            )
             execution.execution_time_ms = (
-                int((datetime.utcnow() - execution.started_at).total_seconds() * 1000)
-                if execution.started_at
-                else 0
+                int((datetime.now(UTC) - execution.started_at).total_seconds() * 1000) if execution.started_at else 0
             )
             new_state = None
             state_errors = []
@@ -263,12 +252,10 @@ class CodeExecutionRunner:
 
         except Exception as e:
             execution.status = ExecutionStatus.FAILED
-            execution.completed_at = datetime.utcnow()
+            execution.completed_at = datetime.now(UTC)
             execution.error_message = str(e)
             execution.execution_time_ms = (
-                int((datetime.utcnow() - execution.started_at).total_seconds() * 1000)
-                if execution.started_at
-                else 0
+                int((datetime.now(UTC) - execution.started_at).total_seconds() * 1000) if execution.started_at else 0
             )
             new_state = None
             state_errors = []
@@ -279,9 +266,7 @@ class CodeExecutionRunner:
 
         return execution, handle, new_state, state_errors, container_source
 
-    def _process_outputs(
-        self, stdout: str, stderr: str, timestamp: datetime
-    ) -> List[ExecutionOutput]:
+    def _process_outputs(self, stdout: str, stderr: str, timestamp: datetime) -> list[ExecutionOutput]:
         """Process stdout and stderr into ExecutionOutput list."""
         outputs = []
 
@@ -305,7 +290,7 @@ class CodeExecutionRunner:
 
         return outputs
 
-    def _get_mounted_filenames(self, files: Optional[List[Dict[str, Any]]]) -> set:
+    def _get_mounted_filenames(self, files: list[dict[str, Any]] | None) -> set:
         """Get set of mounted filenames for filtering."""
         mounted = set()
         if files:
@@ -319,22 +304,16 @@ class CodeExecutionRunner:
                 pass
         return mounted
 
-    def _filter_generated_files(
-        self, generated: List[Dict[str, Any]], mounted_filenames: set
-    ) -> List[Dict[str, Any]]:
+    def _filter_generated_files(self, generated: list[dict[str, Any]], mounted_filenames: set) -> list[dict[str, Any]]:
         """Filter out mounted files from generated files list."""
-        return [
-            f
-            for f in generated
-            if Path(f.get("path", "")).name not in mounted_filenames
-        ]
+        return [f for f in generated if Path(f.get("path", "")).name not in mounted_filenames]
 
     def _record_metrics(
         self,
         execution: CodeExecution,
         session_id: str,
         language: str,
-        files: Optional[List[Dict[str, Any]]],
+        files: list[dict[str, Any]] | None,
     ) -> None:
         """Record execution metrics."""
         try:
@@ -347,17 +326,13 @@ class CodeExecutionRunner:
                 memory_peak_mb=execution.memory_peak_mb,
                 exit_code=execution.exit_code,
                 file_count=len(files) if files else 0,
-                output_size_bytes=(
-                    sum(len(o.content) for o in execution.outputs)
-                    if execution.outputs
-                    else 0
-                ),
+                output_size_bytes=(sum(len(o.content) for o in execution.outputs) if execution.outputs else 0),
             )
             metrics_collector.record_execution_metrics(metrics)
         except Exception as e:
             logger.error("Failed to record execution metrics", error=str(e))
 
-    async def _detect_generated_files(self, handle: PodHandle) -> List[Dict[str, Any]]:
+    async def _detect_generated_files(self, handle: PodHandle) -> list[dict[str, Any]]:
         """Detect files generated during execution via sidecar HTTP API."""
         if not handle or not handle.pod_ip:
             return []
@@ -397,7 +372,7 @@ class CodeExecutionRunner:
 
         return []
 
-    def get_container_by_session(self, session_id: str) -> Optional[PodHandle]:
+    def get_container_by_session(self, session_id: str) -> PodHandle | None:
         """Get pod handle for a session.
 
         DEPRECATED: Handle is now returned directly from execute() method.
@@ -405,7 +380,7 @@ class CodeExecutionRunner:
         """
         return self.session_handles.get(session_id)
 
-    async def get_execution(self, execution_id: str) -> Optional[CodeExecution]:
+    async def get_execution(self, execution_id: str) -> CodeExecution | None:
         """Retrieve an execution by ID."""
         return self.active_executions.get(execution_id)
 
@@ -425,7 +400,7 @@ class CodeExecutionRunner:
                 del self.session_handles[execution.session_id]
 
             execution.status = ExecutionStatus.CANCELLED
-            execution.completed_at = datetime.utcnow()
+            execution.completed_at = datetime.now(UTC)
             execution.error_message = "Execution cancelled by user"
 
             logger.info(f"Cancelled execution {execution_id}")
@@ -435,13 +410,9 @@ class CodeExecutionRunner:
             logger.error(f"Failed to cancel execution {execution_id}: {e}")
             return False
 
-    async def list_executions(
-        self, session_id: str, limit: int = 100
-    ) -> List[CodeExecution]:
+    async def list_executions(self, session_id: str, limit: int = 100) -> list[CodeExecution]:
         """List executions for a session."""
-        executions = [
-            e for e in self.active_executions.values() if e.session_id == session_id
-        ]
+        executions = [e for e in self.active_executions.values() if e.session_id == session_id]
         executions.sort(key=lambda x: x.created_at, reverse=True)
         return executions[:limit]
 
@@ -453,11 +424,7 @@ class CodeExecutionRunner:
                 await self.kubernetes_manager.destroy_pod(handle)
                 del self.session_handles[session_id]
 
-            execution_ids = [
-                eid
-                for eid, e in self.active_executions.items()
-                if e.session_id == session_id
-            ]
+            execution_ids = [eid for eid, e in self.active_executions.items() if e.session_id == session_id]
             for eid in execution_ids:
                 del self.active_executions[eid]
 
@@ -470,7 +437,7 @@ class CodeExecutionRunner:
 
     async def cleanup_expired_executions(self, max_age_hours: int = 24) -> int:
         """Clean up old execution records."""
-        cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=max_age_hours)
         expired = [
             eid
             for eid, e in self.active_executions.items()

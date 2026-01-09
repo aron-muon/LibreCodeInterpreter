@@ -1,12 +1,12 @@
 """Graceful shutdown handling for the application."""
 
 import asyncio
-from typing import List, Callable, Awaitable
+from typing import Awaitable, Callable, List
+
 import structlog
 
 from ..services.health import health_service
 from ..services.metrics import metrics_collector
-
 
 logger = structlog.get_logger(__name__)
 
@@ -16,7 +16,7 @@ class GracefulShutdownHandler:
 
     def __init__(self):
         """Initialize shutdown handler."""
-        self._shutdown_callbacks: List[Callable[[], Awaitable[None]]] = []
+        self._shutdown_callbacks: list[Callable[[], Awaitable[None]]] = []
         self._is_shutting_down = False
         self._shutdown_lock = asyncio.Lock()
 
@@ -38,16 +38,12 @@ class GracefulShutdownHandler:
                 try:
                     # Add timeout to each callback to prevent hanging
                     await asyncio.wait_for(callback(), timeout=10.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     callback_name = getattr(callback, "__name__", str(callback))
-                    logger.warning(
-                        f"Shutdown callback {callback_name} timed out after 10 seconds"
-                    )
+                    logger.warning(f"Shutdown callback {callback_name} timed out after 10 seconds")
                 except Exception as e:
                     callback_name = getattr(callback, "__name__", str(callback))
-                    logger.error(
-                        f"Error in shutdown callback {callback_name}", error=str(e)
-                    )
+                    logger.error(f"Error in shutdown callback {callback_name}", error=str(e))
 
             logger.info("Graceful shutdown completed")
 
@@ -67,7 +63,7 @@ async def cleanup_services() -> None:
         session_service = get_session_service()
         await asyncio.wait_for(session_service.close(), timeout=3.0)
         logger.info("Session service stopped")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("Session service stop timed out")
     except ImportError as e:
         logger.warning(f"Could not import session service during shutdown: {e}")
@@ -78,7 +74,7 @@ async def cleanup_services() -> None:
     try:
         await asyncio.wait_for(metrics_collector.stop(), timeout=5.0)
         logger.info("Metrics collector stopped")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("Metrics collector stop timed out")
     except Exception as e:
         logger.error("Error stopping metrics collector", error=str(e))
@@ -87,7 +83,7 @@ async def cleanup_services() -> None:
     try:
         await asyncio.wait_for(health_service.close(), timeout=3.0)
         logger.info("Health service closed")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("Health service close timed out")
     except Exception as e:
         logger.error("Error closing health service", error=str(e))
@@ -107,7 +103,7 @@ async def cleanup_active_containers() -> None:
         # Stop all active executions with shorter timeout to prevent hanging
         await asyncio.wait_for(execution_service.cleanup_all_containers(), timeout=8.0)
         logger.info("Container cleanup completed")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("Container cleanup timed out after 8 seconds - forcing shutdown")
     except ImportError as e:
         logger.warning(f"Could not import execution service during shutdown: {e}")

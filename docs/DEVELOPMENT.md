@@ -23,11 +23,10 @@ This document provides detailed instructions for setting up the development envi
    cd KubeCodeRun
    ```
 
-2. **Install dependencies with uv**
+2. **Install dependencies**
 
    ```bash
    just install
-   # Or directly: uv sync
    ```
 
    This creates a virtual environment in `.venv` and installs all dependencies.
@@ -49,7 +48,6 @@ This document provides detailed instructions for setting up the development envi
 5. **Run the API server**
    ```bash
    just run
-   # Or: uv run uvicorn src.main:app --reload
    ```
 
 ## Development Tools
@@ -58,8 +56,8 @@ This project uses modern Python tooling:
 
 | Tool | Purpose | Command |
 |------|---------|---------|
-| **uv** | Package management | `uv sync`, `uv add <pkg>` |
 | **just** | Task runner | `just <recipe>` |
+| **uv** | Package management (via just) | `just install` |
 | **ruff** | Linting & formatting | `just lint`, `just format` |
 | **ty** | Type checking | `just typecheck` |
 

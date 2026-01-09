@@ -48,9 +48,7 @@ class OutputProcessor:
         """
         try:
             if len(output) > max_size:
-                output = (
-                    output[:max_size] + "\n[Output truncated - size limit exceeded]"
-                )
+                output = output[:max_size] + "\n[Output truncated - size limit exceeded]"
 
             # Remove dangerous control characters but keep newlines
             output = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", output)
@@ -62,7 +60,7 @@ class OutputProcessor:
             return "[Output sanitization failed]"
 
     @classmethod
-    def validate_generated_file(cls, file_info: Dict[str, Any]) -> bool:
+    def validate_generated_file(cls, file_info: dict[str, Any]) -> bool:
         """Validate generated file for security.
 
         Args:
@@ -74,9 +72,7 @@ class OutputProcessor:
         try:
             # Check file size
             if file_info.get("size", 0) > settings.max_file_size_mb * 1024 * 1024:
-                logger.warning(
-                    f"Generated file {file_info.get('path')} exceeds size limit"
-                )
+                logger.warning(f"Generated file {file_info.get('path')} exceeds size limit")
                 return False
 
             file_path = file_info.get("path", "")
@@ -90,8 +86,7 @@ class OutputProcessor:
 
             # Check for path traversal attempts
             if ".." in relative_path or (
-                relative_path.startswith("/")
-                and not file_path.startswith(container_workspace)
+                relative_path.startswith("/") and not file_path.startswith(container_workspace)
             ):
                 logger.warning(f"Generated file {file_path} has suspicious path")
                 return False
@@ -122,9 +117,7 @@ class OutputProcessor:
         return cls.MIME_TYPES.get(extension, "application/octet-stream")
 
     @classmethod
-    def determine_execution_status(
-        cls, exit_code: int, stderr: str, execution_time_ms: int
-    ) -> ExecutionStatus:
+    def determine_execution_status(cls, exit_code: int, stderr: str, execution_time_ms: int) -> ExecutionStatus:
         """Determine the final execution status based on various factors.
 
         Args:
@@ -148,17 +141,12 @@ class OutputProcessor:
             stderr_lower = stderr.lower()
 
             # Memory-related errors
-            if any(
-                term in stderr_lower
-                for term in ["out of memory", "memory error", "segmentation fault"]
-            ):
+            if any(term in stderr_lower for term in ["out of memory", "memory error", "segmentation fault"]):
                 logger.warning("Execution failed due to memory issues")
                 return ExecutionStatus.FAILED
 
             # Permission-related errors
-            if any(
-                term in stderr_lower for term in ["permission denied", "access denied"]
-            ):
+            if any(term in stderr_lower for term in ["permission denied", "access denied"]):
                 logger.warning("Execution failed due to permission issues")
                 return ExecutionStatus.FAILED
 
@@ -195,10 +183,7 @@ class OutputProcessor:
             return "File permission error occurred during execution. Please try again."
 
         # Java compilation errors
-        if (
-            "javac: not found" in stderr_lower
-            or "javac: command not found" in stderr_lower
-        ):
+        if "javac: not found" in stderr_lower or "javac: command not found" in stderr_lower:
             return "Java compilation not supported. Please use simple Java code that doesn't require compilation."
 
         # Memory-related errors
