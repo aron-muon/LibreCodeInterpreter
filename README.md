@@ -1,7 +1,7 @@
 # KubeCodeRun
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
 [![CI Status](https://github.com/aron-muon/KubeCodeRun/actions/workflows/lint.yml/badge.svg)](https://github.com/aron-muon/KubeCodeRun/actions/workflows/lint.yml)
 
 A secure, open-source code interpreter API that provides sandboxed code execution in isolated Kubernetes pods. Compatible with LibreChat's Code Interpreter API.

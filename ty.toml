@@ -1,0 +1,16 @@
+[src]
+include = ["src"]
+
+## Temporarily ignore existing type issues
+[rules]
+invalid-argument-type = "ignore"
+invalid-await = "ignore"
+invalid-parameter-default = "ignore"
+invalid-return-type = "ignore"
+missing-argument = "ignore"
+not-subscriptable = "ignore"
+too-many-positional-arguments = "ignore"
+unknown-argument = "ignore"
+unresolved-attribute = "ignore"
+unresolved-import = "ignore"
+unsupported-operator = "ignore"

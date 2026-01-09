@@ -54,58 +54,57 @@ Integration tests validate end-to-end behavior:
 
 Before running tests, ensure:
 
-1. **Virtual environment activated:**
+1. **Dependencies installed:**
 
    ```bash
-   source .venv/bin/activate
+   just install
+   # Or: uv sync
    ```
 
-2. **Dependencies installed:**
-
+2. **For integration tests, infrastructure running:**
    ```bash
-   pip install -r requirements.txt
-   pip install pytest pytest-asyncio pytest-cov pytest-mock
-   ```
-
-3. **For integration tests, infrastructure running:**
-   ```bash
-   docker-compose up -d
+   just docker-up
+   # Or: docker-compose up -d
    ```
 
 ### Running All Tests
 
 ```bash
 # Run all tests
-pytest tests/
+just test
+# Or: uv run pytest tests/
 
 # With verbose output
-pytest -v tests/
+uv run pytest -v tests/
 
 # With coverage report
-pytest --cov=src tests/
+just test-cov
+# Or: uv run pytest --cov=src tests/
 ```
 
 ### Running Unit Tests Only
 
 ```bash
 # Run all unit tests
-pytest tests/unit/
+just test-unit
+# Or: uv run pytest tests/unit/
 
 # Run a specific test file
-pytest tests/unit/test_execution_service.py
+uv run pytest tests/unit/test_execution_service.py
 
 # Run a specific test function
-pytest tests/unit/test_execution_service.py::test_execute_python_code
+uv run pytest tests/unit/test_execution_service.py::test_execute_python_code
 ```
 
 ### Running Integration Tests Only
 
 ```bash
 # Run all integration tests
-pytest tests/integration/
+just test-integration
+# Or: uv run pytest tests/integration/
 
 # Run core integration tests
-pytest tests/integration/test_api_contracts.py \
+uv run pytest tests/integration/test_api_contracts.py \
        tests/integration/test_librechat_compat.py \
        tests/integration/test_container_behavior.py -v
 ```
@@ -114,13 +113,13 @@ pytest tests/integration/test_api_contracts.py \
 
 ```bash
 # Run only slow tests
-pytest -m slow
+uv run pytest -m slow
 
 # Skip slow tests
-pytest -m "not slow"
+uv run pytest -m "not slow"
 
 # Run only Python-related tests
-pytest -k "python"
+uv run pytest -k "python"
 ```
 
 ---
@@ -279,14 +278,8 @@ async def test_state_persistence(api_client):
 A dedicated performance testing script is available:
 
 ```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Install aiohttp for async HTTP requests
-pip install aiohttp
-
 # Run performance tests
-python scripts/perf_test.py
+uv run python scripts/perf_test.py
 ```
 
 ### What Performance Tests Measure
@@ -325,7 +318,8 @@ Generate coverage reports:
 
 ```bash
 # Generate HTML coverage report
-pytest --cov=src --cov-report=html tests/
+just test-cov
+# Or: uv run pytest --cov=src --cov-report=html tests/
 
 # View report
 open htmlcov/index.html
@@ -348,19 +342,24 @@ For CI/CD pipelines, use:
 
 ```bash
 # Run tests with JUnit XML output
-pytest --junitxml=test-results.xml tests/
+uv run pytest --junitxml=test-results.xml tests/
 
 # Run with coverage in CI format
-pytest --cov=src --cov-report=xml tests/
+uv run pytest --cov=src --cov-report=xml tests/
 ```
 
 ### GitHub Actions Example
 
 ```yaml
+- name: Install uv
+  run: |
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    echo "$HOME/.local/bin" >> $GITHUB_PATH
+
 - name: Run Tests
   run: |
-    pip install -r requirements.txt
-    pytest --cov=src --cov-report=xml tests/unit/
+    uv sync
+    uv run pytest --cov=src --cov-report=xml tests/unit/
 
 - name: Upload Coverage
   uses: codecov/codecov-action@v3
