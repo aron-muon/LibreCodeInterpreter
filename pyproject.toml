@@ -26,6 +26,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "bandit>=1.9.2",
     "locust>=2.43.0",
     "psutil>=7.2.1",
     "pytest>=9.0.2",

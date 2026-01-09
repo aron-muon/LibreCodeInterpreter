@@ -38,7 +38,6 @@ jobs:
 
       - name: Security scan with Bandit
         run: |
-          uv pip install bandit
           uv run bandit -r src/ -s B104,B108 --severity-level high
 
       - name: Run Unit Tests

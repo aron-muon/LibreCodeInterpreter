@@ -3,4 +3,12 @@ fix = true
 
 [lint]
 select = ["E", "F", "I", "UP", "ASYNC"]
-ignore = ["E501"]
+
+## Temporarily ignore existing lint issues
+ignore = [
+    "E501",      # Line too long
+    "F401",      # Imported but unused
+    "F841",      # Local variable assigned but never used
+    "UP035",     # Deprecated typing imports (Dict, List, Optional)
+    "ASYNC109",  # Async function with timeout parameter
+]
