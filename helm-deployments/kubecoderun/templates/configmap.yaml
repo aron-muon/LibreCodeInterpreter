@@ -135,6 +135,19 @@ data:
   METRICS_DAILY_RETENTION_DAYS: {{ .Values.metrics.sqlite.dailyRetentionDays | quote }}
   METRICS_AGGREGATION_INTERVAL_MINUTES: {{ .Values.metrics.sqlite.aggregationIntervalMinutes | quote }}
 
+  # Security Configuration
+  RATE_LIMIT_ENABLED: {{ .Values.security.rateLimitEnabled | quote }}
+  ENABLE_NETWORK_ISOLATION: {{ .Values.security.networkIsolation | quote }}
+  ENABLE_FILESYSTEM_ISOLATION: {{ .Values.security.filesystemIsolation | quote }}
+  POD_MASK_HOST_INFO: {{ .Values.security.maskHostInfo | quote }}
+  POD_GENERIC_HOSTNAME: {{ .Values.security.genericHostname | quote }}
+  {{- if .Values.security.allowedFileExtensions }}
+  ALLOWED_FILE_EXTENSIONS: {{ .Values.security.allowedFileExtensions | join "," | quote }}
+  {{- end }}
+  {{- if .Values.security.blockedFilePatterns }}
+  BLOCKED_FILE_PATTERNS: {{ .Values.security.blockedFilePatterns | join "," | quote }}
+  {{- end }}
+
   # MinIO/S3 Configuration
   {{- if not .Values.secretsStore.enabled }}
   # When using secretsStore, these values come from AWS Secrets Manager

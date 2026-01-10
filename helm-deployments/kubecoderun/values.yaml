@@ -304,6 +304,20 @@ metrics:
     dailyRetentionDays: 365
     aggregationIntervalMinutes: 60
 
+# Security Configuration
+security:
+  rateLimitEnabled: true
+  networkIsolation: true
+  filesystemIsolation: true
+
+  # Pod hardening
+  maskHostInfo: true
+  genericHostname: "sandbox"
+
+  # File restrictions (optional - uses defaults if empty)
+  # allowedFileExtensions: []
+  # blockedFilePatterns: []
+
 # RBAC for execution pods
 rbac:
   create: true
