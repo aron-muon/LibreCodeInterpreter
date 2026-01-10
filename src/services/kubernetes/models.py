@@ -116,6 +116,7 @@ class PodSpec:
     run_as_user: int = 1000
     run_as_group: int = 1000
     run_as_non_root: bool = True
+    seccomp_profile_type: str = "RuntimeDefault"
 
     # Sidecar configuration
     sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest"
@@ -143,6 +144,9 @@ class PoolConfig:
 
     # Image pull policy (Always, IfNotPresent, Never)
     image_pull_policy: str = "Always"
+
+    # Seccomp profile type (RuntimeDefault, Unconfined, Localhost)
+    seccomp_profile_type: str = "RuntimeDefault"
 
     @property
     def uses_pool(self) -> bool:

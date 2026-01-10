@@ -19,7 +19,7 @@ Usage:
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -132,6 +132,10 @@ class Settings(BaseSettings):
     k8s_cpu_request: str = Field(default="100m", description="CPU request for execution pods")
     k8s_memory_request: str = Field(default="128Mi", description="Memory request for execution pods")
     k8s_run_as_user: int = Field(default=1000, ge=1, description="UID to run containers as")
+    k8s_seccomp_profile_type: Literal["RuntimeDefault", "Unconfined"] = Field(
+        default="RuntimeDefault",
+        description="Seccomp profile type for execution pods",
+    )
     k8s_job_ttl_seconds: int = Field(
         default=60,
         ge=10,
@@ -558,6 +562,7 @@ class Settings(BaseSettings):
             cpu_request=self.k8s_cpu_request,
             memory_request=self.k8s_memory_request,
             run_as_user=self.k8s_run_as_user,
+            seccomp_profile_type=self.k8s_seccomp_profile_type,
             job_ttl_seconds_after_finished=self.k8s_job_ttl_seconds,
             job_active_deadline_seconds=self.k8s_job_deadline_seconds,
             image_registry=self.k8s_image_registry,
@@ -622,6 +627,7 @@ class Settings(BaseSettings):
                     sidecar_cpu_request=self.k8s_sidecar_cpu_request,
                     sidecar_memory_request=self.k8s_sidecar_memory_request,
                     image_pull_policy=self.k8s_image_pull_policy,
+                    seccomp_profile_type=self.k8s_seccomp_profile_type,
                 )
             )
 

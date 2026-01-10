@@ -37,6 +37,7 @@ class KubernetesConfig:
     run_as_user: int = 1000
     run_as_group: int = 1000
     run_as_non_root: bool = True
+    seccomp_profile_type: str = "RuntimeDefault"
 
     # Job settings (for languages with pool_size=0)
     job_ttl_seconds_after_finished: int = 60

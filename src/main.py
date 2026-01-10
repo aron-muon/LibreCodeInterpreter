@@ -150,6 +150,7 @@ async def lifespan(app: FastAPI):
                 default_memory_limit=settings.k8s_memory_limit,
                 default_cpu_request=settings.k8s_cpu_request,
                 default_memory_request=settings.k8s_memory_request,
+                seccomp_profile_type=settings.k8s_seccomp_profile_type,
             )
 
             await kubernetes_manager.start()

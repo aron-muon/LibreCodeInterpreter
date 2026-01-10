@@ -416,3 +416,46 @@ class TestCreatePodManifest:
         main_container = next(c for c in pod.spec.containers if c.name == "main")
         assert main_container.security_context.run_as_user == 1001
         assert main_container.security_context.run_as_non_root is True
+
+    def test_create_pod_manifest_seccomp_profile_default(self):
+        """Test pod manifest has RuntimeDefault seccomp profile by default."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+        )
+
+        assert pod.spec.security_context.seccomp_profile is not None
+        assert pod.spec.security_context.seccomp_profile.type == "RuntimeDefault"
+
+    def test_create_pod_manifest_seccomp_profile_unconfined(self):
+        """Test pod manifest accepts Unconfined seccomp profile."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+            seccomp_profile_type="Unconfined",
+        )
+
+        assert pod.spec.security_context.seccomp_profile.type == "Unconfined"
+
+    def test_create_pod_manifest_seccomp_profile_propagates(self):
+        """Test seccomp profile type is propagated to pod security context."""
+        for profile_type in ["RuntimeDefault", "Unconfined"]:
+            pod = client.create_pod_manifest(
+                name="test-pod",
+                namespace="test-ns",
+                main_image="python:3.12",
+                sidecar_image="sidecar:latest",
+                language="python",
+                labels={"app": "test"},
+                seccomp_profile_type=profile_type,
+            )
+
+            assert pod.spec.security_context.seccomp_profile.type == profile_type

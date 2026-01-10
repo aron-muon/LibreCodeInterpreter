@@ -46,6 +46,7 @@ class KubernetesManager:
         default_memory_limit: str = "512Mi",
         default_cpu_request: str = "100m",
         default_memory_request: str = "128Mi",
+        seccomp_profile_type: str = "RuntimeDefault",
     ):
         """Initialize the Kubernetes manager.
 
@@ -57,6 +58,7 @@ class KubernetesManager:
             default_memory_limit: Default memory limit for pods
             default_cpu_request: Default CPU request for pods
             default_memory_request: Default memory request for pods
+            seccomp_profile_type: Seccomp profile type (RuntimeDefault, Unconfined, Localhost)
         """
         self.namespace = namespace or get_current_namespace()
         self.sidecar_image = sidecar_image
@@ -64,6 +66,7 @@ class KubernetesManager:
         self.default_memory_limit = default_memory_limit
         self.default_cpu_request = default_cpu_request
         self.default_memory_request = default_memory_request
+        self.seccomp_profile_type = seccomp_profile_type
 
         # Pool manager for warm pods
         self._pool_manager = PodPoolManager(
@@ -272,6 +275,7 @@ class KubernetesManager:
                 memory_limit=self.default_memory_limit,
                 cpu_request=self.default_cpu_request,
                 memory_request=self.default_memory_request,
+                seccomp_profile_type=self.seccomp_profile_type,
             )
 
             result = await self._job_executor.execute_with_job(

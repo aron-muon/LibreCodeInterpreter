@@ -123,6 +123,7 @@ class JobExecutor:
             sidecar_memory_limit=spec.sidecar_memory_limit,
             sidecar_cpu_request=spec.sidecar_cpu_request,
             sidecar_memory_request=spec.sidecar_memory_request,
+            seccomp_profile_type=spec.seccomp_profile_type,
             ttl_seconds_after_finished=self.ttl_seconds_after_finished,
             active_deadline_seconds=self.active_deadline_seconds,
         )

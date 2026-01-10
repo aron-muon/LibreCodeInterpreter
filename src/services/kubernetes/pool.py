@@ -185,6 +185,7 @@ class PodPool:
             sidecar_memory_limit=self.config.sidecar_memory_limit,
             sidecar_cpu_request=self.config.sidecar_cpu_request,
             sidecar_memory_request=self.config.sidecar_memory_request,
+            seccomp_profile_type=self.config.seccomp_profile_type,
         )
 
         try:
