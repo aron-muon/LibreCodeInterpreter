@@ -280,6 +280,14 @@ state:
   enabled: true
   ttlSeconds: 7200
   maxSizeMb: 50
+  captureOnError: false
+
+  # Archival settings (Redis -> MinIO)
+  archive:
+    enabled: true
+    afterSeconds: 3600
+    ttlDays: 7
+    checkIntervalSeconds: 300
 
 # RBAC for execution pods
 rbac:

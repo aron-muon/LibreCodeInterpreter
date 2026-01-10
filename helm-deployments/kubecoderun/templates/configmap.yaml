@@ -116,6 +116,13 @@ data:
   STATE_PERSISTENCE_ENABLED: {{ .Values.state.enabled | quote }}
   STATE_TTL_SECONDS: {{ .Values.state.ttlSeconds | quote }}
   STATE_MAX_SIZE_MB: {{ .Values.state.maxSizeMb | quote }}
+  STATE_CAPTURE_ON_ERROR: {{ .Values.state.captureOnError | quote }}
+
+  # State Archival (Redis -> MinIO)
+  STATE_ARCHIVE_ENABLED: {{ .Values.state.archive.enabled | quote }}
+  STATE_ARCHIVE_AFTER_SECONDS: {{ .Values.state.archive.afterSeconds | quote }}
+  STATE_ARCHIVE_TTL_DAYS: {{ .Values.state.archive.ttlDays | quote }}
+  STATE_ARCHIVE_CHECK_INTERVAL_SECONDS: {{ .Values.state.archive.checkIntervalSeconds | quote }}
 
   # MinIO/S3 Configuration
   {{- if not .Values.secretsStore.enabled }}
