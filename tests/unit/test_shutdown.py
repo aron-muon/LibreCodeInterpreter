@@ -131,9 +131,11 @@ class TestShutdown:
 
         # Use a shorter timeout for testing - but the real code has 10s timeout
         # Just verify it doesn't hang forever
-        with patch("src.utils.shutdown.asyncio.wait_for", new_callable=AsyncMock) as mock_wait:
-            mock_wait.side_effect = TimeoutError()
+        async def timeout_side_effect(coro, timeout):
+            coro.close()  # Clean up the coroutine to avoid warning
+            raise TimeoutError()
 
+        with patch("src.utils.shutdown.asyncio.wait_for", side_effect=timeout_side_effect):
             # Should not raise
             await handler.shutdown()
 
