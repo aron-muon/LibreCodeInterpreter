@@ -737,7 +737,7 @@ class TestCleanupOrphanObjects:
         self, file_service, mock_minio_client, mock_redis_client
     ):
         """Test cleanup skips files belonging to active sessions."""
-        from datetime import datetime, timedelta
+        from datetime import timedelta
 
         mock_redis_client.smembers.return_value = {"session-123"}
 

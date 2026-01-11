@@ -807,7 +807,7 @@ class TestPodPoolReplenishLoop:
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 try:
                     await asyncio.wait_for(pod_pool._replenish_loop(), timeout=1)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
 
         assert call_count > 0

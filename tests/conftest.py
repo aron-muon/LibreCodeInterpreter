@@ -30,7 +30,6 @@ from src.services.execution import CodeExecutionService
 from src.services.file import FileService
 from src.services.session import SessionService
 
-
 # Note: event_loop fixture removed - asyncio_mode="auto" handles this
 
 

@@ -849,7 +849,7 @@ class TestGlobalInstance:
     @pytest.mark.asyncio
     async def test_get_api_key_manager(self):
         """Test getting global API key manager."""
-        from src.services.api_key_manager import get_api_key_manager, _api_key_manager
+        from src.services.api_key_manager import _api_key_manager, get_api_key_manager
 
         with patch("src.services.api_key_manager.redis_pool") as mock_pool:
             mock_client = AsyncMock()

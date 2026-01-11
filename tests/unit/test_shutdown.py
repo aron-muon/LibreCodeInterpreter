@@ -132,7 +132,7 @@ class TestShutdown:
         # Use a shorter timeout for testing - but the real code has 10s timeout
         # Just verify it doesn't hang forever
         with patch("src.utils.shutdown.asyncio.wait_for", new_callable=AsyncMock) as mock_wait:
-            mock_wait.side_effect = asyncio.TimeoutError()
+            mock_wait.side_effect = TimeoutError()
 
             # Should not raise
             await handler.shutdown()
@@ -187,7 +187,7 @@ class TestCleanupServices:
         mock_session_service = AsyncMock()
 
         async def slow_close():
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
 
         mock_session_service.close = slow_close
 
@@ -243,7 +243,7 @@ class TestCleanupActiveContainers:
         mock_execution_service = AsyncMock()
 
         async def slow_cleanup():
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
 
         mock_execution_service.cleanup_all_containers = slow_cleanup
 

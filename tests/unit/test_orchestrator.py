@@ -360,6 +360,7 @@ class TestExecute:
     ):
         """Test successful execution."""
         from datetime import timedelta
+
         from src.models.exec import ExecResponse
 
         sample_session = Session(
@@ -417,6 +418,7 @@ class TestExecute:
     ):
         """Test that ValueError is converted to ValidationError."""
         from datetime import timedelta
+
         from src.models import ServiceUnavailableError
 
         sample_session = Session(
@@ -442,6 +444,7 @@ class TestExecute:
     ):
         """Test that unexpected errors are converted to ServiceUnavailableError."""
         from datetime import timedelta
+
         from src.models import ServiceUnavailableError
 
         sample_session = Session(
@@ -468,9 +471,10 @@ class TestMountFilesExtended:
     @pytest.mark.asyncio
     async def test_mount_files_with_valid_files(self, orchestrator, mock_file_service):
         """Test mounting files when files are found."""
+        from datetime import datetime
+
         from src.models.exec import RequestFile
         from src.models.files import FileInfo
-        from datetime import datetime
 
         file_info = FileInfo(
             file_id="file-123",
@@ -511,9 +515,10 @@ class TestMountFilesExtended:
     @pytest.mark.asyncio
     async def test_mount_files_lookup_by_name(self, orchestrator, mock_file_service):
         """Test mounting files by name when id lookup fails."""
+        from datetime import datetime
+
         from src.models.exec import RequestFile
         from src.models.files import FileInfo
-        from datetime import datetime
 
         file_info = FileInfo(
             file_id="file-456",
@@ -538,9 +543,10 @@ class TestMountFilesExtended:
     @pytest.mark.asyncio
     async def test_mount_files_skip_duplicates(self, orchestrator, mock_file_service):
         """Test that duplicate files are skipped."""
+        from datetime import datetime
+
         from src.models.exec import RequestFile
         from src.models.files import FileInfo
-        from datetime import datetime
 
         file_info = FileInfo(
             file_id="file-123",
@@ -1099,7 +1105,7 @@ class TestBuildResponse:
         assert response.state_hash == "abc123"
 
 
-class TestCleanup:
+class TestCleanupExtended:
     """Tests for _cleanup method - extended."""
 
     @pytest.mark.asyncio

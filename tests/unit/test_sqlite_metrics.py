@@ -794,7 +794,7 @@ class TestBatchWriterLoop:
 
             try:
                 await asyncio.wait_for(service._batch_writer(), timeout=0.5)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
 
 

@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from src.middleware.security import SecurityMiddleware, RequestLoggingMiddleware
+from src.middleware.security import RequestLoggingMiddleware, SecurityMiddleware
 
 
 @pytest.fixture
