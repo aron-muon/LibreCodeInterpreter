@@ -122,6 +122,9 @@ class PodSpec:
     sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest"
     sidecar_port: int = 8080
 
+    # Network isolation mode - disables network-dependent features (e.g., Go module proxy)
+    network_isolated: bool = False
+
 
 @dataclass
 class PoolConfig:
@@ -147,6 +150,9 @@ class PoolConfig:
 
     # Seccomp profile type (RuntimeDefault, Unconfined, Localhost)
     seccomp_profile_type: str = "RuntimeDefault"
+
+    # Network isolation mode - disables network-dependent features (e.g., Go module proxy)
+    network_isolated: bool = False
 
     @property
     def uses_pool(self) -> bool:

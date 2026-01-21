@@ -47,6 +47,7 @@ class KubernetesManager:
         default_cpu_request: str = "100m",
         default_memory_request: str = "128Mi",
         seccomp_profile_type: str = "RuntimeDefault",
+        network_isolated: bool = False,
     ):
         """Initialize the Kubernetes manager.
 
@@ -59,6 +60,7 @@ class KubernetesManager:
             default_cpu_request: Default CPU request for pods
             default_memory_request: Default memory request for pods
             seccomp_profile_type: Seccomp profile type (RuntimeDefault, Unconfined, Localhost)
+            network_isolated: Whether network isolation is enabled (disables network-dependent features)
         """
         self.namespace = namespace or get_current_namespace()
         self.sidecar_image = sidecar_image
@@ -67,6 +69,7 @@ class KubernetesManager:
         self.default_cpu_request = default_cpu_request
         self.default_memory_request = default_memory_request
         self.seccomp_profile_type = seccomp_profile_type
+        self.network_isolated = network_isolated
 
         # Pool manager for warm pods
         self._pool_manager = PodPoolManager(
@@ -276,6 +279,7 @@ class KubernetesManager:
                 cpu_request=self.default_cpu_request,
                 memory_request=self.default_memory_request,
                 seccomp_profile_type=self.seccomp_profile_type,
+                network_isolated=self.network_isolated,
             )
 
             result = await self._job_executor.execute_with_job(

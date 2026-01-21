@@ -63,6 +63,39 @@ def pooled_pod(pod_handle):
     )
 
 
+class TestPoolConfig:
+    """Tests for PoolConfig dataclass."""
+
+    def test_pool_config_default_network_isolated(self):
+        """Test that network_isolated defaults to False."""
+        config = PoolConfig(
+            language="python",
+            image="python:3.12",
+            pool_size=5,
+        )
+        assert config.network_isolated is False
+
+    def test_pool_config_with_network_isolated_true(self):
+        """Test creating PoolConfig with network_isolated=True."""
+        config = PoolConfig(
+            language="go",
+            image="golang:1.22",
+            pool_size=2,
+            network_isolated=True,
+        )
+        assert config.network_isolated is True
+
+    def test_pool_config_with_network_isolated_false(self):
+        """Test creating PoolConfig with explicit network_isolated=False."""
+        config = PoolConfig(
+            language="python",
+            image="python:3.12",
+            pool_size=3,
+            network_isolated=False,
+        )
+        assert config.network_isolated is False
+
+
 class TestPodPoolInit:
     """Tests for PodPool initialization."""
 

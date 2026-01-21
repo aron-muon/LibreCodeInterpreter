@@ -459,3 +459,53 @@ class TestCreatePodManifest:
             )
 
             assert pod.spec.security_context.seccomp_profile.type == profile_type
+
+    def test_create_pod_manifest_network_isolated_false(self):
+        """Test pod manifest with network_isolated=False."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+            network_isolated=False,
+        )
+
+        sidecar = next(c for c in pod.spec.containers if c.name == "sidecar")
+        env_dict = {e.name: e.value for e in sidecar.env}
+        assert "NETWORK_ISOLATED" in env_dict
+        assert env_dict["NETWORK_ISOLATED"] == "false"
+
+    def test_create_pod_manifest_network_isolated_true(self):
+        """Test pod manifest with network_isolated=True."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="go:1.22",
+            sidecar_image="sidecar:latest",
+            language="go",
+            labels={"app": "test"},
+            network_isolated=True,
+        )
+
+        sidecar = next(c for c in pod.spec.containers if c.name == "sidecar")
+        env_dict = {e.name: e.value for e in sidecar.env}
+        assert "NETWORK_ISOLATED" in env_dict
+        assert env_dict["NETWORK_ISOLATED"] == "true"
+
+    def test_create_pod_manifest_network_isolated_default(self):
+        """Test pod manifest defaults network_isolated to False."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+        )
+
+        sidecar = next(c for c in pod.spec.containers if c.name == "sidecar")
+        env_dict = {e.name: e.value for e in sidecar.env}
+        assert "NETWORK_ISOLATED" in env_dict
+        assert env_dict["NETWORK_ISOLATED"] == "false"

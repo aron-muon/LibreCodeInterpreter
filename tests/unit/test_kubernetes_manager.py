@@ -103,6 +103,23 @@ class TestKubernetesManagerInit:
         call_kwargs = mock_pool_cls.call_args[1]
         assert call_kwargs["configs"] == configs
 
+    def test_init_with_network_isolated(self):
+        """Test initialization with network_isolated parameter."""
+        with patch("src.services.kubernetes.manager.PodPoolManager"):
+            with patch("src.services.kubernetes.manager.JobExecutor"):
+                manager = KubernetesManager(network_isolated=True)
+
+        assert manager.network_isolated is True
+
+    def test_init_network_isolated_default_false(self):
+        """Test that network_isolated defaults to False."""
+        with patch("src.services.kubernetes.manager.get_current_namespace", return_value="default-ns"):
+            with patch("src.services.kubernetes.manager.PodPoolManager"):
+                with patch("src.services.kubernetes.manager.JobExecutor"):
+                    manager = KubernetesManager()
+
+        assert manager.network_isolated is False
+
 
 class TestStart:
     """Tests for start method."""

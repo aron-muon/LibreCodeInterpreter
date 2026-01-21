@@ -628,6 +628,7 @@ class Settings(BaseSettings):
                     sidecar_memory_request=self.k8s_sidecar_memory_request,
                     image_pull_policy=self.k8s_image_pull_policy,
                     seccomp_profile_type=self.k8s_seccomp_profile_type,
+                    network_isolated=self.enable_network_isolation,
                 )
             )
 

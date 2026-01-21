@@ -192,6 +192,7 @@ def create_pod_manifest(
     sidecar_cpu_request: str = "100m",
     sidecar_memory_request: str = "256Mi",
     seccomp_profile_type: str = "RuntimeDefault",
+    network_isolated: bool = False,
 ) -> client.V1Pod:
     """Create a Pod manifest for code execution.
 
@@ -304,6 +305,7 @@ def create_pod_manifest(
             client.V1EnvVar(name="LANGUAGE", value=language),
             client.V1EnvVar(name="WORKING_DIR", value="/mnt/data"),
             client.V1EnvVar(name="SIDECAR_PORT", value=str(sidecar_port)),
+            client.V1EnvVar(name="NETWORK_ISOLATED", value=str(network_isolated).lower()),
         ],
         readiness_probe=client.V1Probe(
             http_get=client.V1HTTPGetAction(path="/ready", port=sidecar_port),

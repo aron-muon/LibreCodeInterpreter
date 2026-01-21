@@ -186,6 +186,7 @@ class PodPool:
             sidecar_cpu_request=self.config.sidecar_cpu_request,
             sidecar_memory_request=self.config.sidecar_memory_request,
             seccomp_profile_type=self.config.seccomp_profile_type,
+            network_isolated=self.config.network_isolated,
         )
 
         try:

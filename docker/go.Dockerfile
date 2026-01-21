@@ -59,6 +59,7 @@ COPY --from=runtime-deps /usr/bin/env /usr/bin/sleep /usr/bin/
 WORKDIR /mnt/data
 
 # Default command with sanitized environment
+# Note: GOPROXY/GOSUMDB can be overridden by sidecar when network isolation is enabled
 ENTRYPOINT ["/usr/bin/env", "-i", \
     "PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin", \
     "HOME=/tmp", \

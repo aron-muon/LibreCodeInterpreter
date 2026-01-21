@@ -32,6 +32,8 @@ MAX_OUTPUT_SIZE = int(os.getenv("MAX_OUTPUT_SIZE", "1048576"))  # 1MB
 MAIN_PROCESS_NAME = os.getenv("MAIN_PROCESS_NAME", "")
 # Version from build arg (set via Dockerfile ARG -> ENV)
 VERSION = os.getenv("VERSION", "0.0.0-dev")
+# Network isolation mode - when true, disables network-dependent features (e.g., Go module proxy)
+NETWORK_ISOLATED = os.getenv("NETWORK_ISOLATED", "false").lower() in ("true", "1", "yes")
 
 
 class ExecuteRequest(BaseModel):
@@ -186,6 +188,37 @@ def get_container_env(pid: int) -> dict[str, str]:
         return {}
 
 
+def apply_network_isolation_overrides(env: dict[str, str], language: str) -> dict[str, str]:
+    """Apply environment overrides when network isolation is enabled.
+
+    When pods are network-isolated (egress blocked), certain language runtimes
+    need configuration changes to work offline. This function modifies the
+    environment to enable offline/air-gapped operation.
+
+    Args:
+        env: The container environment dictionary (will be modified in place)
+        language: The language being executed
+
+    Returns:
+        The modified environment dictionary
+    """
+    if not NETWORK_ISOLATED:
+        return env
+
+    # Go: Disable module proxy and checksum database for offline operation
+    if language in ("go",):
+        env["GOPROXY"] = "off"
+        env["GOSUMDB"] = "off"
+        print(f"[EXECUTE] Network isolation: overriding GOPROXY=off, GOSUMDB=off", flush=True)
+
+    # Future: Add overrides for other languages as needed
+    # - Rust: CARGO_NET_OFFLINE=true
+    # - npm/Node: npm_config_offline=true
+    # - pip/Python: PIP_NO_INDEX=1
+
+    return env
+
+
 def get_language_command(
     language: str, code: str, working_dir: str, container_env: dict[str, str]
 ) -> tuple[list[str], Path | None]:
@@ -283,6 +316,9 @@ async def execute_via_nsenter(request: ExecuteRequest) -> ExecuteResponse:
         # This ensures we use the exact environment from the Dockerfile,
         # eliminating config drift between Dockerfiles and sidecar code
         container_env = get_container_env(main_pid)
+
+        # Apply network isolation overrides if enabled
+        container_env = apply_network_isolation_overrides(container_env, LANGUAGE)
 
         # Get the command for this language (this writes code to a temp file)
         cmd, temp_file = get_language_command(
