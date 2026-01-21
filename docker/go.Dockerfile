@@ -34,8 +34,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN mkdir -p /mnt/data /mnt/data/go-build && chown -R 65532:65532 /mnt/data
 
 ################################
-# Stage 3: Minimal runtime image
-FROM dhi.io/golang:1.25-debian13 AS final
+# Stage 3: Runtime image (requires -dev for go run/go build)
+FROM dhi.io/golang:1.25-debian13-dev AS final
 
 ARG BUILD_DATE
 ARG VERSION
