@@ -16,6 +16,9 @@ help:
     @echo "  test-file FILE   Run a specific test file"
     @echo "  test-cov         Run tests with coverage report"
     @echo "  perf-test        Run performance tests"
+    @echo "  build-images     Build Docker images"
+    @echo "  test-images      Test Docker images directly"
+    @echo "  test-k8s         Test sidecar in real Kubernetes"
     @echo ""
     @echo "Code Quality:"
     @echo "  lint             Run ruff linter"
@@ -55,6 +58,18 @@ test-file FILE:
 # Run performance tests
 perf-test:
     uv run python scripts/perf_test.py
+
+# Build Docker images
+build-images *ARGS:
+    ./scripts/build-images.sh {{ARGS}}
+
+# Test code exec in Docker images
+test-images *ARGS:
+    ./scripts/test-images.sh {{ARGS}}
+
+# Test sidecar execution in real Kubernetes (requires local K8s cluster)
+test-k8s *ARGS:
+    ./scripts/test-k8s-sidecar.sh {{ARGS}}
 
 # Lint with ruff
 lint:
