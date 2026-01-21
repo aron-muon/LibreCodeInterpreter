@@ -7,9 +7,7 @@ to environment variables for languages that require network access (e.g., Go).
 import pytest
 
 
-def apply_network_isolation_overrides(
-    env: dict[str, str], language: str, network_isolated: bool
-) -> dict[str, str]:
+def apply_network_isolation_overrides(env: dict[str, str], language: str, network_isolated: bool) -> dict[str, str]:
     """Replicate the network isolation logic from sidecar for testing.
 
     This mirrors apply_network_isolation_overrides() from docker/sidecar/main.py
