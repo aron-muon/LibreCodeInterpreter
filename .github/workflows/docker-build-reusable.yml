@@ -55,6 +55,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: dhi.io
+          username: ${{ vars.DHI_USERNAME }}
+          password: ${{ secrets.DHI_PASSWORD }}
+
       - name: Set platform tag and repo owner
         id: vars
         run: |
@@ -73,6 +79,9 @@ jobs:
           cache-from: type=gha,scope=${{ inputs.image_name }}-${{ steps.vars.outputs.tag }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image_name }}-${{ steps.vars.outputs.tag }}
           provenance: false
+          # Force gzip compression for compatibility with older container runtimes
+          # DHI base images use zstd which causes layer/diffID mismatch errors
+          outputs: type=image,push=true,compression=gzip,compression-level=6,force-compression=true
           build-args: |
             VERSION=${{ inputs.version }}
 

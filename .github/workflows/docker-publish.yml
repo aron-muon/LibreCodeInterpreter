@@ -126,6 +126,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.api == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-api
       dockerfile: Dockerfile
@@ -140,6 +141,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.sidecar == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-sidecar
       dockerfile: docker/sidecar/Dockerfile
@@ -154,6 +156,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.python == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-python
       dockerfile: docker/python.Dockerfile
@@ -167,6 +170,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.javascript == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-javascript
       dockerfile: docker/nodejs.Dockerfile
@@ -180,6 +184,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.javascript == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-typescript
       dockerfile: docker/nodejs.Dockerfile
@@ -193,6 +198,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.go == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-go
       dockerfile: docker/go.Dockerfile
@@ -206,6 +212,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.java == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-java
       dockerfile: docker/java.Dockerfile
@@ -219,6 +226,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.c-cpp == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-c-cpp
       dockerfile: docker/c-cpp.Dockerfile
@@ -232,6 +240,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.php == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-php
       dockerfile: docker/php.Dockerfile
@@ -245,6 +254,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.rust == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-rust
       dockerfile: docker/rust.Dockerfile
@@ -258,6 +268,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.r == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-r
       dockerfile: docker/r.Dockerfile
@@ -271,6 +282,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.fortran == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-fortran
       dockerfile: docker/fortran.Dockerfile
@@ -284,6 +296,7 @@ jobs:
       needs.changes.outputs.is_fork != 'true' &&
       (needs.changes.outputs.d == 'true' || needs.changes.outputs.force_all == 'true')
     uses: ./.github/workflows/docker-build-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-d
       dockerfile: docker/d.Dockerfile
@@ -302,6 +315,7 @@ jobs:
       needs.changes.outputs.api != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-api
       new_tag: ${{ needs.changes.outputs.image_tag }}
@@ -315,6 +329,7 @@ jobs:
       needs.changes.outputs.sidecar != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-sidecar
       new_tag: ${{ needs.changes.outputs.image_tag }}
@@ -328,6 +343,7 @@ jobs:
       needs.changes.outputs.python != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-python
       new_tag: ${{ needs.changes.outputs.image_tag }}
@@ -341,6 +357,7 @@ jobs:
       needs.changes.outputs.javascript != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-javascript
       new_tag: ${{ needs.changes.outputs.image_tag }}
@@ -354,6 +371,7 @@ jobs:
       needs.changes.outputs.javascript != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-typescript
       new_tag: ${{ needs.changes.outputs.image_tag }}
@@ -367,6 +385,7 @@ jobs:
       needs.changes.outputs.go != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-go
       new_tag: ${{ needs.changes.outputs.image_tag }}
@@ -380,6 +399,7 @@ jobs:
       needs.changes.outputs.java != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-java
       new_tag: ${{ needs.changes.outputs.image_tag }}
@@ -393,6 +413,7 @@ jobs:
       needs.changes.outputs.c-cpp != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-c-cpp
       new_tag: ${{ needs.changes.outputs.image_tag }}
@@ -406,6 +427,7 @@ jobs:
       needs.changes.outputs.php != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-php
       new_tag: ${{ needs.changes.outputs.image_tag }}
@@ -419,6 +441,7 @@ jobs:
       needs.changes.outputs.rust != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-rust
       new_tag: ${{ needs.changes.outputs.image_tag }}
@@ -432,6 +455,7 @@ jobs:
       needs.changes.outputs.r != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-r
       new_tag: ${{ needs.changes.outputs.image_tag }}
@@ -445,6 +469,7 @@ jobs:
       needs.changes.outputs.fortran != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-fortran
       new_tag: ${{ needs.changes.outputs.image_tag }}
@@ -458,6 +483,7 @@ jobs:
       needs.changes.outputs.d != 'true' &&
       needs.changes.outputs.force_all != 'true'
     uses: ./.github/workflows/docker-retag-reusable.yml
+    secrets: inherit
     with:
       image_name: kubecoderun-d
       new_tag: ${{ needs.changes.outputs.image_tag }}
