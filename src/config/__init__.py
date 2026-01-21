@@ -579,6 +579,8 @@ class Settings(BaseSettings):
         from ..services.kubernetes.models import PoolConfig
 
         configs = []
+        languages = ["py", "js", "ts", "go", "java", "c", "cpp", "php", "rs", "r", "f90", "d"]
+
         pool_sizes = {
             "py": self.pod_pool_py,
             "js": self.pod_pool_js,
@@ -594,26 +596,20 @@ class Settings(BaseSettings):
             "d": self.pod_pool_d,
         }
 
-        # Per-language image overrides from environment (LANG_IMAGE_<LANG>)
-        # Falls back to auto-generated registry/tag pattern if not set
-        image_overrides = {
-            "py": os.getenv("LANG_IMAGE_PY"),
-            "js": os.getenv("LANG_IMAGE_JS"),
-            "ts": os.getenv("LANG_IMAGE_TS"),
-            "go": os.getenv("LANG_IMAGE_GO"),
-            "java": os.getenv("LANG_IMAGE_JAVA"),
-            "c": os.getenv("LANG_IMAGE_C"),
-            "cpp": os.getenv("LANG_IMAGE_CPP"),
-            "php": os.getenv("LANG_IMAGE_PHP"),
-            "rs": os.getenv("LANG_IMAGE_RS"),
-            "r": os.getenv("LANG_IMAGE_R"),
-            "f90": os.getenv("LANG_IMAGE_F90"),
-            "d": os.getenv("LANG_IMAGE_D"),
-        }
+        for lang in languages:
+            lang_upper = lang.upper()
+            pool_size = pool_sizes[lang]
 
-        for lang, pool_size in pool_sizes.items():
-            # Use explicit image override if set, otherwise auto-generate
-            image = image_overrides.get(lang) or self.kubernetes.get_image_for_language(lang)
+            # Per-language image override (LANG_IMAGE_<LANG>)
+            image = os.getenv(f"LANG_IMAGE_{lang_upper}") or self.kubernetes.get_image_for_language(lang)
+
+            # Per-language resource limits (LANG_CPU_LIMIT_<LANG>, etc.)
+            # Falls back to global sidecar defaults
+            sidecar_cpu_limit = os.getenv(f"LANG_CPU_LIMIT_{lang_upper}") or self.k8s_sidecar_cpu_limit
+            sidecar_memory_limit = os.getenv(f"LANG_MEMORY_LIMIT_{lang_upper}") or self.k8s_sidecar_memory_limit
+            sidecar_cpu_request = os.getenv(f"LANG_CPU_REQUEST_{lang_upper}") or self.k8s_sidecar_cpu_request
+            sidecar_memory_request = os.getenv(f"LANG_MEMORY_REQUEST_{lang_upper}") or self.k8s_sidecar_memory_request
+
             configs.append(
                 PoolConfig(
                     language=lang,
@@ -622,10 +618,10 @@ class Settings(BaseSettings):
                     sidecar_image=self.k8s_sidecar_image,
                     cpu_limit=self.k8s_cpu_limit,
                     memory_limit=self.k8s_memory_limit,
-                    sidecar_cpu_limit=self.k8s_sidecar_cpu_limit,
-                    sidecar_memory_limit=self.k8s_sidecar_memory_limit,
-                    sidecar_cpu_request=self.k8s_sidecar_cpu_request,
-                    sidecar_memory_request=self.k8s_sidecar_memory_request,
+                    sidecar_cpu_limit=sidecar_cpu_limit,
+                    sidecar_memory_limit=sidecar_memory_limit,
+                    sidecar_cpu_request=sidecar_cpu_request,
+                    sidecar_memory_request=sidecar_memory_request,
                     image_pull_policy=self.k8s_image_pull_policy,
                     seccomp_profile_type=self.k8s_seccomp_profile_type,
                     network_isolated=self.enable_network_isolation,

@@ -100,6 +100,145 @@ data:
   {{- $defaultImage = printf "%s-%s:%s" $registry "d" $defaultTag }}
   LANG_IMAGE_D: {{ .Values.execution.languages.d.image | default $defaultImage | quote }}
 
+  # Per-language resource limits (falls back to sidecar defaults)
+  # These control user code execution resources (code runs in sidecar's cgroup)
+  {{- $defaultCpuLimit := .Values.execution.sidecar.resources.limits.cpu }}
+  {{- $defaultMemoryLimit := .Values.execution.sidecar.resources.limits.memory }}
+  {{- $defaultCpuRequest := .Values.execution.sidecar.resources.requests.cpu }}
+  {{- $defaultMemoryRequest := .Values.execution.sidecar.resources.requests.memory }}
+  {{- with .Values.execution.languages.python.resources }}
+  LANG_CPU_LIMIT_PY: {{ .limits.cpu | default $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_PY: {{ .limits.memory | default $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_PY: {{ .requests.cpu | default $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_PY: {{ .requests.memory | default $defaultMemoryRequest | quote }}
+  {{- else }}
+  LANG_CPU_LIMIT_PY: {{ $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_PY: {{ $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_PY: {{ $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_PY: {{ $defaultMemoryRequest | quote }}
+  {{- end }}
+  {{- with .Values.execution.languages.javascript.resources }}
+  LANG_CPU_LIMIT_JS: {{ .limits.cpu | default $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_JS: {{ .limits.memory | default $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_JS: {{ .requests.cpu | default $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_JS: {{ .requests.memory | default $defaultMemoryRequest | quote }}
+  {{- else }}
+  LANG_CPU_LIMIT_JS: {{ $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_JS: {{ $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_JS: {{ $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_JS: {{ $defaultMemoryRequest | quote }}
+  {{- end }}
+  {{- with .Values.execution.languages.typescript.resources }}
+  LANG_CPU_LIMIT_TS: {{ .limits.cpu | default $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_TS: {{ .limits.memory | default $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_TS: {{ .requests.cpu | default $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_TS: {{ .requests.memory | default $defaultMemoryRequest | quote }}
+  {{- else }}
+  LANG_CPU_LIMIT_TS: {{ $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_TS: {{ $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_TS: {{ $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_TS: {{ $defaultMemoryRequest | quote }}
+  {{- end }}
+  {{- with .Values.execution.languages.go.resources }}
+  LANG_CPU_LIMIT_GO: {{ .limits.cpu | default $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_GO: {{ .limits.memory | default $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_GO: {{ .requests.cpu | default $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_GO: {{ .requests.memory | default $defaultMemoryRequest | quote }}
+  {{- else }}
+  LANG_CPU_LIMIT_GO: {{ $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_GO: {{ $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_GO: {{ $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_GO: {{ $defaultMemoryRequest | quote }}
+  {{- end }}
+  {{- with .Values.execution.languages.java.resources }}
+  LANG_CPU_LIMIT_JAVA: {{ .limits.cpu | default $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_JAVA: {{ .limits.memory | default $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_JAVA: {{ .requests.cpu | default $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_JAVA: {{ .requests.memory | default $defaultMemoryRequest | quote }}
+  {{- else }}
+  LANG_CPU_LIMIT_JAVA: {{ $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_JAVA: {{ $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_JAVA: {{ $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_JAVA: {{ $defaultMemoryRequest | quote }}
+  {{- end }}
+  {{- with .Values.execution.languages.rust.resources }}
+  LANG_CPU_LIMIT_RS: {{ .limits.cpu | default $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_RS: {{ .limits.memory | default $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_RS: {{ .requests.cpu | default $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_RS: {{ .requests.memory | default $defaultMemoryRequest | quote }}
+  {{- else }}
+  LANG_CPU_LIMIT_RS: {{ $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_RS: {{ $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_RS: {{ $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_RS: {{ $defaultMemoryRequest | quote }}
+  {{- end }}
+  {{- with .Values.execution.languages.c.resources }}
+  LANG_CPU_LIMIT_C: {{ .limits.cpu | default $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_C: {{ .limits.memory | default $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_C: {{ .requests.cpu | default $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_C: {{ .requests.memory | default $defaultMemoryRequest | quote }}
+  {{- else }}
+  LANG_CPU_LIMIT_C: {{ $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_C: {{ $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_C: {{ $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_C: {{ $defaultMemoryRequest | quote }}
+  {{- end }}
+  {{- with .Values.execution.languages.cpp.resources }}
+  LANG_CPU_LIMIT_CPP: {{ .limits.cpu | default $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_CPP: {{ .limits.memory | default $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_CPP: {{ .requests.cpu | default $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_CPP: {{ .requests.memory | default $defaultMemoryRequest | quote }}
+  {{- else }}
+  LANG_CPU_LIMIT_CPP: {{ $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_CPP: {{ $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_CPP: {{ $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_CPP: {{ $defaultMemoryRequest | quote }}
+  {{- end }}
+  {{- with .Values.execution.languages.php.resources }}
+  LANG_CPU_LIMIT_PHP: {{ .limits.cpu | default $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_PHP: {{ .limits.memory | default $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_PHP: {{ .requests.cpu | default $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_PHP: {{ .requests.memory | default $defaultMemoryRequest | quote }}
+  {{- else }}
+  LANG_CPU_LIMIT_PHP: {{ $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_PHP: {{ $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_PHP: {{ $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_PHP: {{ $defaultMemoryRequest | quote }}
+  {{- end }}
+  {{- with .Values.execution.languages.r.resources }}
+  LANG_CPU_LIMIT_R: {{ .limits.cpu | default $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_R: {{ .limits.memory | default $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_R: {{ .requests.cpu | default $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_R: {{ .requests.memory | default $defaultMemoryRequest | quote }}
+  {{- else }}
+  LANG_CPU_LIMIT_R: {{ $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_R: {{ $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_R: {{ $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_R: {{ $defaultMemoryRequest | quote }}
+  {{- end }}
+  {{- with .Values.execution.languages.fortran.resources }}
+  LANG_CPU_LIMIT_F90: {{ .limits.cpu | default $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_F90: {{ .limits.memory | default $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_F90: {{ .requests.cpu | default $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_F90: {{ .requests.memory | default $defaultMemoryRequest | quote }}
+  {{- else }}
+  LANG_CPU_LIMIT_F90: {{ $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_F90: {{ $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_F90: {{ $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_F90: {{ $defaultMemoryRequest | quote }}
+  {{- end }}
+  {{- with .Values.execution.languages.d.resources }}
+  LANG_CPU_LIMIT_D: {{ .limits.cpu | default $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_D: {{ .limits.memory | default $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_D: {{ .requests.cpu | default $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_D: {{ .requests.memory | default $defaultMemoryRequest | quote }}
+  {{- else }}
+  LANG_CPU_LIMIT_D: {{ $defaultCpuLimit | quote }}
+  LANG_MEMORY_LIMIT_D: {{ $defaultMemoryLimit | quote }}
+  LANG_CPU_REQUEST_D: {{ $defaultCpuRequest | quote }}
+  LANG_MEMORY_REQUEST_D: {{ $defaultMemoryRequest | quote }}
+  {{- end }}
+
   # Execution Limits
   MAX_EXECUTION_TIME: {{ .Values.execution.maxExecutionTime | quote }}
   MAX_MEMORY_MB: {{ .Values.resourceLimits.maxMemoryMb | quote }}

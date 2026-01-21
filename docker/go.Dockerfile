@@ -34,8 +34,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN mkdir -p /mnt/data /mnt/data/go-build && chown -R 65532:65532 /mnt/data
 
 ################################
-# Stage 3: Runtime image (requires -dev for go run/go build)
-FROM dhi.io/golang:1.25-debian13-dev AS final
+# Stage 3: Minimal runtime image
+FROM dhi.io/golang:1.25-debian13 AS final
 
 ARG BUILD_DATE
 ARG VERSION
@@ -59,7 +59,6 @@ COPY --from=runtime-deps /usr/bin/env /usr/bin/sleep /usr/bin/
 WORKDIR /mnt/data
 
 # Default command with sanitized environment
-# Note: GOPROXY/GOSUMDB can be overridden by sidecar when network isolation is enabled
 ENTRYPOINT ["/usr/bin/env", "-i", \
     "PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin", \
     "HOME=/tmp", \

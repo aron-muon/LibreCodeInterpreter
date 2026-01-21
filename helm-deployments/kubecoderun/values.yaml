@@ -210,15 +210,26 @@ execution:
   # poolSize = 0: use Jobs (cold start)
   # Images default to {imageRegistry}-{language}:{imageTag or appVersion}
   # Set image: to override with a custom image for a specific language
+  # Set resources: to override CPU/memory limits for specific languages
+  # (falls back to sidecar.resources if not specified)
   languages:
     python:
       poolSize: 5
+      # resources: (uses sidecar.resources defaults)
     javascript:
       poolSize: 2
     typescript:
       poolSize: 0
     go:
       poolSize: 0
+      # Go compilation is CPU-intensive; consider increasing resources:
+      # resources:
+      #   limits:
+      #     cpu: "2"
+      #     memory: "1Gi"
+      #   requests:
+      #     cpu: "500m"
+      #     memory: "512Mi"
     java:
       poolSize: 0
     rust:
