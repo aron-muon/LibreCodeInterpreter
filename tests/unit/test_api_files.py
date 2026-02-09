@@ -133,6 +133,42 @@ class TestUploadFile:
         mock_session_service.create_session.assert_called_once()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "original, expected",
+        [
+            ("my file.csv", "my_file.csv"),
+            ("report (final).xlsx", "report__final_.xlsx"),
+            ("data&summary#2.txt", "data_summary_2.txt"),
+            ("résumé (v2).pdf", "r_sum___v2_.pdf"),
+            ("hello world!@#$.csv", "hello_world____.csv"),
+        ],
+    )
+    async def test_upload_sanitizes_filename_before_storage(
+        self, mock_file_service, mock_session_service, original, expected
+    ):
+        """Test that filenames with special characters are sanitized before storing."""
+        file = MagicMock(spec=UploadFile)
+        file.filename = original
+        file.content_type = "text/csv"
+        file.size = 100
+        file.read = AsyncMock(return_value=b"a,b,c")
+
+        result = await upload_file(
+            file=file,
+            files=None,
+            entity_id=None,
+            file_service=mock_file_service,
+            session_service=mock_session_service,
+        )
+
+        # The stored filename should be sanitized
+        call_kwargs = mock_file_service.store_uploaded_file.call_args
+        assert call_kwargs.kwargs["filename"] == expected
+
+        # The response should also use the sanitized name
+        assert result["files"][0]["filename"] == expected
+
+    @pytest.mark.asyncio
     async def test_upload_multiple_files(self, mock_file_service, mock_session_service, mock_upload_file):
         """Test uploading multiple files."""
         files = [mock_upload_file, mock_upload_file]

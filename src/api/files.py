@@ -111,16 +111,17 @@ async def upload_file(
             # Read file content
             content = await file.read()
 
-            # Store file directly
+            # Sanitize filename before storage so the name on disk in the
+            # execution pod matches what LibreChat reports to the model.
+            sanitized_name = OutputProcessor.sanitize_filename(file.filename)
+
+            # Store file with the sanitized name
             file_id = await file_service.store_uploaded_file(
                 session_id=session_id,
-                filename=file.filename,
+                filename=sanitized_name,
                 content=content,
                 content_type=file.content_type,
             )
-
-            # Sanitize filename to match what will be used in container
-            sanitized_name = OutputProcessor.sanitize_filename(file.filename)
 
             uploaded_files.append(
                 {
