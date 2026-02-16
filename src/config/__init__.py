@@ -119,7 +119,7 @@ class Settings(BaseSettings):
         description="Service account for execution pods",
     )
     k8s_sidecar_image: str = Field(
-        default="aronmuon/kubecoderun-sidecar:latest",
+        default="aronmuon/kubecoderun-sidecar-agent:latest",
         description="Sidecar container image for pod communication",
     )
     k8s_sidecar_port: int = Field(default=8080, ge=1, le=65535, description="Sidecar HTTP API port")
@@ -136,11 +136,11 @@ class Settings(BaseSettings):
         default="agent",
         description="Execution mode: 'agent' (no nsenter/capabilities, gVisor-safe) or 'nsenter' (legacy)",
     )
-    k8s_executor_agent_port: int = Field(
+    k8s_executor_port: int = Field(
         default=9090,
         ge=1,
         le=65535,
-        description="Port for the executor agent HTTP server in agent mode",
+        description="Port for the executor HTTP server inside the main container",
     )
     k8s_seccomp_profile_type: Literal["RuntimeDefault", "Unconfined"] = Field(
         default="RuntimeDefault",
@@ -612,7 +612,7 @@ class Settings(BaseSettings):
             memory_request=self.k8s_memory_request,
             run_as_user=self.k8s_run_as_user,
             execution_mode=self.k8s_execution_mode,
-            executor_agent_port=self.k8s_executor_agent_port,
+            executor_port=self.k8s_executor_port,
             seccomp_profile_type=self.k8s_seccomp_profile_type,
             job_ttl_seconds_after_finished=self.k8s_job_ttl_seconds,
             job_active_deadline_seconds=self.k8s_job_deadline_seconds,
@@ -701,7 +701,7 @@ class Settings(BaseSettings):
                     image_pull_policy=self.k8s_image_pull_policy,
                     image_pull_secrets=pull_secrets,
                     execution_mode=self.k8s_execution_mode,
-                    executor_agent_port=self.k8s_executor_agent_port,
+                    executor_port=self.k8s_executor_port,
                     seccomp_profile_type=self.k8s_seccomp_profile_type,
                     network_isolated=self.enable_network_isolation,
                     gke_sandbox_enabled=self.gke_sandbox_enabled,

@@ -123,9 +123,9 @@ In agent mode, a lightweight Go HTTP server (the **executor agent**) runs inside
 
 **How it works:**
 
-1. An **init container** (using the sidecar image) copies the executor agent binary from `/opt/executor-agent` to the shared volume at `/mnt/data/.executor-agent`
+1. An **init container** (using the `sidecar-agent` image) copies the executor agent binary from `/opt/executor-agent` to the shared volume at `/mnt/data/.executor-agent`
 2. The main container's CMD is overridden to run `/mnt/data/.executor-agent` instead of `sleep infinity`
-3. The executor agent starts an HTTP server on `127.0.0.1:9090` (configurable via `K8S_EXECUTOR_AGENT_PORT`)
+3. The executor agent starts an HTTP server on `127.0.0.1:9090` (configurable via `K8S_EXECUTOR_PORT`)
 4. The sidecar sends execution requests to the agent via HTTP POST to `/execute`
 5. The agent spawns subprocesses (e.g., `python code.py`) inheriting the container's sanitized environment
 
@@ -135,8 +135,8 @@ spec:
   # No shareProcessNamespace needed
   initContainers:
   - name: agent-init
-    image: <sidecar-image>
-    command: ["cp", "/opt/executor-agent", "/mnt/data/.executor-agent"]
+    image: <sidecar-agent-image>
+    command: ["python", "-c", "import shutil,os; shutil.copy2('/opt/executor-agent','/mnt/data/.executor-agent'); os.chmod('/mnt/data/.executor-agent',0o755)"]
     securityContext:
       runAsUser: 65532
       runAsNonRoot: true
@@ -145,7 +145,7 @@ spec:
         drop: ["ALL"]
   containers:
   - name: main
-    args: ["/mnt/data/.executor-agent"]  # Runs via existing ENTRYPOINT env -i
+    args: ["/mnt/data/.executor-agent"]  # Runs via existing ENTRYPOINT
     securityContext:
       runAsUser: 65532
       runAsNonRoot: true
@@ -156,7 +156,7 @@ spec:
     env:
     - name: EXECUTION_MODE
       value: "agent"
-    - name: EXECUTOR_AGENT_PORT
+    - name: EXECUTOR_PORT
       value: "9090"
     securityContext:
       runAsUser: 65532
@@ -209,7 +209,7 @@ We use **file capabilities** via `setcap` on the `nsenter` binary in the Docker 
 ```dockerfile
 # In sidecar Dockerfile
 RUN apt-get install -y libcap2-bin
-RUN setcap 'cap_sys_ptrace,cap_sys_admin,cap_sys_chroot+eip' /usr/bin/nsenter
+RUN setcap 'cap_sys_ptrace,cap_sys_admin,cap_sys_chroot+ep' /usr/bin/nsenter
 ```
 
 This grants the nsenter binary the ability to gain these capabilities when executed, even by non-root users.
@@ -334,6 +334,58 @@ execution:
 2. **Default Deny**: All egress is blocked by default for maximum security.
 
 3. **No Inter-Pod Communication**: NetworkPolicy denies all ingress from other pods.
+
+### GKE Sandbox (gVisor) Support
+
+For clusters requiring additional kernel-level isolation, KubeCodeRun supports [GKE Sandbox](https://docs.cloud.google.com/kubernetes-engine/docs/concepts/sandbox-pods), which uses [gVisor](https://gvisor.dev/) to intercept system calls before they reach the host kernel.
+
+**GKE Sandbox requires agent mode** (`K8S_EXECUTION_MODE=agent`). nsenter mode is incompatible with gVisor because:
+- gVisor does not support `shareProcessNamespace` the same way as a standard Linux kernel
+- `nsenter` relies on host kernel namespace operations that gVisor intentionally intercepts
+- Agent mode eliminates the need for `SYS_PTRACE`, `SYS_ADMIN`, and `SYS_CHROOT` capabilities, which are restricted in sandboxed pods
+
+#### Configuration
+
+```yaml
+# In helm values.yaml
+execution:
+  executionMode: "agent"  # Required for GKE Sandbox
+
+  gkeSandbox:
+    enabled: true
+    runtimeClassName: "gvisor"
+    nodeSelector:
+      sandbox.gke.io/runtime: gvisor
+    customTolerations:
+      - key: sandbox.gke.io/runtime
+        operator: Equal
+        value: gvisor
+        effect: NoSchedule
+```
+
+#### Security Benefits
+
+| Feature | Without GKE Sandbox | With GKE Sandbox |
+|---------|-------------------|-----------------|
+| System call isolation | Seccomp profile only | gVisor userspace kernel intercepts all syscalls |
+| Kernel exposure | Container shares host kernel | gVisor provides an independent kernel API |
+| Escape risk | Kernel vulnerability could escape | Two boundaries: gVisor + container |
+| Side-channel attacks | Possible via shared kernel | Mitigated by kernel-level isolation |
+
+#### Requirements
+
+- GKE cluster with at least two node pools (one standard, one sandbox-enabled)
+- Sandbox node pool with `--sandbox type=gvisor`
+- Agent execution mode (`executionMode: "agent"`)
+- Sidecar image built with `--target sidecar-agent` (default)
+
+#### Limitations (from GKE documentation)
+
+- No `hostPath` storage
+- No privileged containers
+- Seccomp, AppArmor, SELinux are not supported (gVisor provides its own isolation)
+- Container-level memory metrics are not available (pod-level metrics work)
+- See [GKE Sandbox limitations](https://docs.cloud.google.com/kubernetes-engine/docs/concepts/sandbox-pods#limitations) for the full list
 
 ### State Persistence Security
 

@@ -119,11 +119,11 @@ class PodSpec:
     run_as_group: int = 65532
     run_as_non_root: bool = True
     execution_mode: str = "agent"  # "agent" or "nsenter"
-    executor_agent_port: int = 9090
+    executor_port: int = 9090
     seccomp_profile_type: str = "RuntimeDefault"
 
     # Sidecar configuration
-    sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest"
+    sidecar_image: str = "aronmuon/kubecoderun-sidecar-agent:latest"
     sidecar_port: int = 8080
 
     # Image pull secrets (list of secret names)
@@ -146,7 +146,7 @@ class PoolConfig:
     language: str
     image: str
     pool_size: int = 0  # 0 = use Jobs instead of pool
-    sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest"
+    sidecar_image: str = "aronmuon/kubecoderun-sidecar-agent:latest"
 
     # Resource limits (can override defaults)
     cpu_limit: str | None = None
@@ -168,7 +168,7 @@ class PoolConfig:
 
     # Execution mode and security settings
     execution_mode: str = "agent"  # "agent" or "nsenter"
-    executor_agent_port: int = 9090
+    executor_port: int = 9090
     seccomp_profile_type: str = "RuntimeDefault"
 
     # Network isolation mode - disables network-dependent features (e.g., Go module proxy)

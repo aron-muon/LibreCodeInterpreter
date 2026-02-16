@@ -62,7 +62,7 @@ class TestJobExecutorInit:
             assert executor.namespace == "default"
             assert executor.ttl_seconds_after_finished == 60
             assert executor.active_deadline_seconds == 300
-            assert executor.sidecar_image == "aronmuon/kubecoderun-sidecar:latest"
+            assert executor.sidecar_image == "aronmuon/kubecoderun-sidecar-agent:latest"
 
     def test_init_with_custom_values(self):
         """Test initialization with custom values."""

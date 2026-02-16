@@ -194,7 +194,7 @@ def create_pod_manifest(
     seccomp_profile_type: str = "RuntimeDefault",
     network_isolated: bool = False,
     execution_mode: str = "agent",
-    executor_agent_port: int = 9090,
+    executor_port: int = 9090,
     gke_sandbox_enabled: bool = False,
     runtime_class_name: str = "gvisor",
     sandbox_node_selector: dict[str, str] | None = None,
@@ -231,7 +231,7 @@ def create_pod_manifest(
         seccomp_profile_type: Seccomp profile type (RuntimeDefault or Unconfined)
         network_isolated: Whether network isolation is enabled
         execution_mode: Execution mode - "agent" (default) or "nsenter"
-        executor_agent_port: Port for the executor agent (agent mode only)
+        executor_port: Port for the executor HTTP server inside the main container
         gke_sandbox_enabled: Enable GKE Sandbox (gVisor) for additional kernel isolation
         runtime_class_name: Runtime class name for sandboxed pods (default: gvisor)
         sandbox_node_selector: Node selector for sandbox-enabled nodes
@@ -328,11 +328,8 @@ def create_pod_manifest(
         client.V1EnvVar(name="SIDECAR_PORT", value=str(sidecar_port)),
         client.V1EnvVar(name="NETWORK_ISOLATED", value=str(network_isolated).lower()),
         client.V1EnvVar(name="EXECUTION_MODE", value=execution_mode),
+        client.V1EnvVar(name="EXECUTOR_PORT", value=str(executor_port)),
     ]
-    if use_agent:
-        sidecar_env.append(
-            client.V1EnvVar(name="EXECUTOR_AGENT_PORT", value=str(executor_agent_port)),
-        )
 
     # Sidecar container (HTTP API)
     sidecar_container = client.V1Container(
@@ -433,10 +430,7 @@ def create_pod_manifest(
     # Build image pull secrets list
     pull_secrets = None
     if image_pull_secrets:
-        pull_secrets = [
-            client.V1LocalObjectReference(name=secret_name)
-            for secret_name in image_pull_secrets
-        ]
+        pull_secrets = [client.V1LocalObjectReference(name=secret_name) for secret_name in image_pull_secrets]
 
     # Pod spec
     pod_spec = client.V1PodSpec(

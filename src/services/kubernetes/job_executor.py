@@ -41,7 +41,7 @@ class JobExecutor:
         namespace: str | None = None,
         ttl_seconds_after_finished: int = 60,
         active_deadline_seconds: int = 300,
-        sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest",
+        sidecar_image: str = "aronmuon/kubecoderun-sidecar-agent:latest",
     ):
         """Initialize the Job executor.
 
@@ -124,7 +124,7 @@ class JobExecutor:
             sidecar_cpu_request=spec.sidecar_cpu_request,
             sidecar_memory_request=spec.sidecar_memory_request,
             execution_mode=spec.execution_mode,
-            executor_agent_port=spec.executor_agent_port,
+            executor_port=spec.executor_port,
             seccomp_profile_type=spec.seccomp_profile_type,
             network_isolated=spec.network_isolated,
             gke_sandbox_enabled=spec.gke_sandbox_enabled,

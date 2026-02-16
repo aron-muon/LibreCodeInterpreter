@@ -157,7 +157,7 @@ async def lifespan(app: FastAPI):
                 default_cpu_request=settings.k8s_cpu_request,
                 default_memory_request=settings.k8s_memory_request,
                 execution_mode=settings.k8s_execution_mode,
-                executor_agent_port=settings.k8s_executor_agent_port,
+                executor_port=settings.k8s_executor_port,
                 seccomp_profile_type=settings.k8s_seccomp_profile_type,
                 network_isolated=settings.enable_network_isolation,
                 gke_sandbox_enabled=settings.gke_sandbox_enabled,

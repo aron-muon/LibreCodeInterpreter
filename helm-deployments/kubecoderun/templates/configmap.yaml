@@ -46,6 +46,8 @@ data:
   K8S_CPU_REQUEST: {{ .Values.execution.resources.requests.cpu | quote }}
   K8S_MEMORY_REQUEST: {{ .Values.execution.resources.requests.memory | quote }}
   K8S_RUN_AS_USER: {{ .Values.execution.securityContext.runAsUser | quote }}
+  K8S_EXECUTION_MODE: {{ .Values.execution.executionMode | quote }}
+  K8S_EXECUTOR_PORT: {{ .Values.execution.executorPort | quote }}
   K8S_SECCOMP_PROFILE_TYPE: {{ .Values.execution.securityContext.seccompProfile.type | quote }}
   K8S_JOB_TTL_SECONDS: {{ .Values.execution.jobs.ttlSecondsAfterFinished | quote }}
   K8S_JOB_DEADLINE_SECONDS: {{ .Values.execution.jobs.activeDeadlineSeconds | quote }}

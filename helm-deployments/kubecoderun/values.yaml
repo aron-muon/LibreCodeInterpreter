@@ -185,11 +185,23 @@ execution:
     name: "kubecoderun-executor"
     annotations: {}
 
+  # Execution mode: "agent" (default) or "nsenter" (legacy)
+  # - agent: Executor agent runs inside main container. No nsenter, no capabilities,
+  #   no privilege escalation. Compatible with GKE Sandbox (gVisor). Requires the
+  #   sidecar-agent image (default build target).
+  # - nsenter: Sidecar uses nsenter to enter the main container's namespace. Requires
+  #   the sidecar-nsenter image, shareProcessNamespace, SYS_PTRACE/SYS_ADMIN/SYS_CHROOT
+  #   capabilities, and allowPrivilegeEscalation: true.
+  executionMode: "agent"
+
+  # Port for the executor HTTP server inside the main container
+  executorPort: 9090
+
   # Sidecar container configuration
-  # CRITICAL: User code runs in sidecar's cgroup via nsenter (Issue #32)
-  # These resource limits apply to user code execution, not the main container
+  # In nsenter mode: user code runs in sidecar's cgroup via nsenter
+  # In agent mode: sidecar only proxies requests, user code runs in main container's cgroup
   sidecar:
-    repository: ghcr.io/aron-muon/kubecoderun-sidecar
+    repository: ghcr.io/aron-muon/kubecoderun-sidecar-agent
     # tag defaults to Chart.AppVersion if not specified
     tag: ""
     port: 8080

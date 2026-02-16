@@ -18,7 +18,7 @@ class KubernetesConfig:
     service_account: str = "kubecoderun-executor"
 
     # Sidecar configuration
-    sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest"
+    sidecar_image: str = "aronmuon/kubecoderun-sidecar-agent:latest"
     sidecar_port: int = 8080
 
     # Resource limits for execution pods
@@ -44,8 +44,8 @@ class KubernetesConfig:
     # nsenter: Sidecar uses nsenter to enter main container namespace (requires capabilities)
     execution_mode: str = "agent"
 
-    # Executor agent port (used in agent mode, main container listens on this port)
-    executor_agent_port: int = 9090
+    # Executor port (main container listens on this port for execution requests)
+    executor_port: int = 9090
 
     # Job settings (for languages with pool_size=0)
     job_ttl_seconds_after_finished: int = 60

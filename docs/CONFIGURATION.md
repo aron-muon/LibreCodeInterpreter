@@ -175,7 +175,7 @@ Kubernetes is used for secure code execution in isolated pods.
 | Variable               | Default                                      | Description                              |
 | ---------------------- | -------------------------------------------- | ---------------------------------------- |
 | `K8S_NAMESPACE`        | `""` (uses API's namespace)                  | Namespace for execution pods             |
-| `K8S_SIDECAR_IMAGE`    | `aronmuon/kubecoderun-sidecar:latest` | HTTP sidecar image for pod communication |
+| `K8S_SIDECAR_IMAGE`    | `aronmuon/kubecoderun-sidecar-agent:latest` | HTTP sidecar image for pod communication |
 | `K8S_IMAGE_REGISTRY`   | `aronmuon/kubecoderun`              | Registry prefix for language images      |
 | `K8S_IMAGE_TAG`        | `latest`                                     | Image tag for language images            |
 | `K8S_CPU_LIMIT`        | `1`                                          | CPU limit per execution pod              |
@@ -183,7 +183,7 @@ Kubernetes is used for secure code execution in isolated pods.
 | `K8S_CPU_REQUEST`      | `100m`                                       | CPU request per execution pod            |
 | `K8S_MEMORY_REQUEST`   | `128Mi`                                      | Memory request per execution pod         |
 | `K8S_EXECUTION_MODE`   | `agent`                                      | Execution mode: `agent` (default) or `nsenter` |
-| `K8S_EXECUTOR_AGENT_PORT` | `9090`                                    | Port for executor agent HTTP server (agent mode only) |
+| `K8S_EXECUTOR_PORT`    | `9090`                                       | Port for the executor HTTP server inside the main container |
 
 **Execution Modes:**
 
@@ -198,6 +198,48 @@ Kubernetes is used for secure code execution in isolated pods.
 - Network policies deny all egress by default
 - Pods are destroyed immediately after execution
 - See [SECURITY.md](SECURITY.md) for detailed explanation of the security model
+
+#### Sidecar Container Images
+
+The sidecar Dockerfile produces two distinct images via Docker build targets. Use the image that matches your configured `K8S_EXECUTION_MODE`:
+
+| Build Target | Image Name | Execution Mode | Description |
+|-------------|------------|---------------|-------------|
+| `sidecar-agent` (default) | `kubecoderun-sidecar-agent` | `agent` | Contains executor-agent binary; no nsenter, no capabilities |
+| `sidecar-nsenter` | `kubecoderun-sidecar-nsenter` | `nsenter` | Contains nsenter with file capabilities (setcap) |
+
+**Building the images:**
+
+```bash
+# Agent mode sidecar (default, recommended):
+docker build --target sidecar-agent \
+  -t kubecoderun-sidecar-agent:latest \
+  -f docker/sidecar/Dockerfile docker/sidecar/
+
+# nsenter mode sidecar (legacy):
+docker build --target sidecar-nsenter \
+  -t kubecoderun-sidecar-nsenter:latest \
+  -f docker/sidecar/Dockerfile docker/sidecar/
+
+# Or use the build script (builds both automatically):
+./scripts/build-images.sh sidecar-agent     # agent mode sidecar
+./scripts/build-images.sh sidecar-nsenter   # nsenter mode sidecar
+./scripts/build-images.sh                   # all images (both sidecars)
+```
+
+**Helm chart configuration:**
+
+Update `values.yaml` to use the correct sidecar image for your execution mode:
+
+```yaml
+execution:
+  executionMode: "agent"  # or "nsenter"
+  sidecar:
+    # For agent mode (default):
+    repository: ghcr.io/your-org/kubecoderun-sidecar-agent
+    # For nsenter mode:
+    # repository: ghcr.io/your-org/kubecoderun-sidecar-nsenter
+```
 
 ### Resource Limits
 

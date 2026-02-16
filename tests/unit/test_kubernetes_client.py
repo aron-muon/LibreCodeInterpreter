@@ -444,11 +444,11 @@ class TestCreatePodManifest:
         main_container = next(c for c in pod.spec.containers if c.name == "main")
         assert main_container.args == ["/mnt/data/.executor-agent"]
 
-        # Agent mode: sidecar has EXECUTION_MODE and EXECUTOR_AGENT_PORT env vars
+        # Agent mode: sidecar has EXECUTION_MODE and EXECUTOR_PORT env vars
         sidecar = next(c for c in pod.spec.containers if c.name == "sidecar")
         env_dict = {e.name: e.value for e in sidecar.env}
         assert env_dict["EXECUTION_MODE"] == "agent"
-        assert env_dict["EXECUTOR_AGENT_PORT"] == "9090"
+        assert env_dict["EXECUTOR_PORT"] == "9090"
 
         # Agent mode: no capabilities, no privilege escalation for sidecar
         assert sidecar.security_context.allow_privilege_escalation is False
@@ -493,11 +493,11 @@ class TestCreatePodManifest:
         # nsenter mode: EXECUTION_MODE is set to nsenter
         env_dict = {e.name: e.value for e in sidecar.env}
         assert env_dict["EXECUTION_MODE"] == "nsenter"
-        # nsenter mode: no EXECUTOR_AGENT_PORT env var
-        assert "EXECUTOR_AGENT_PORT" not in env_dict
+        # nsenter mode: EXECUTOR_PORT is still present (used by both modes)
+        assert env_dict["EXECUTOR_PORT"] == "9090"
 
     def test_create_pod_manifest_agent_mode_executor_port(self):
-        """Test that agent mode uses the configured executor agent port."""
+        """Test that agent mode uses the configured executor port."""
         pod = client.create_pod_manifest(
             name="test-pod",
             namespace="test-ns",
@@ -506,12 +506,12 @@ class TestCreatePodManifest:
             language="python",
             labels={"app": "test"},
             execution_mode="agent",
-            executor_agent_port=8888,
+            executor_port=8888,
         )
 
         sidecar = next(c for c in pod.spec.containers if c.name == "sidecar")
         env_dict = {e.name: e.value for e in sidecar.env}
-        assert env_dict["EXECUTOR_AGENT_PORT"] == "8888"
+        assert env_dict["EXECUTOR_PORT"] == "8888"
 
     def test_create_pod_manifest_seccomp_profile_default(self):
         """Test pod manifest has RuntimeDefault seccomp profile by default."""
@@ -605,3 +605,169 @@ class TestCreatePodManifest:
         env_dict = {e.name: e.value for e in sidecar.env}
         assert "NETWORK_ISOLATED" in env_dict
         assert env_dict["NETWORK_ISOLATED"] == "false"
+
+    def test_create_pod_manifest_gke_sandbox_enabled(self):
+        """Test GKE Sandbox adds runtime class, node selector, tolerations, and annotation."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+            gke_sandbox_enabled=True,
+        )
+
+        # Runtime class
+        assert pod.spec.runtime_class_name == "gvisor"
+
+        # Node selector
+        assert pod.spec.node_selector is not None
+        assert pod.spec.node_selector["sandbox.gke.io/runtime"] == "gvisor"
+
+        # Tolerations
+        assert pod.spec.tolerations is not None
+        assert len(pod.spec.tolerations) == 1
+        tol = pod.spec.tolerations[0]
+        assert tol.key == "sandbox.gke.io/runtime"
+        assert tol.operator == "Equal"
+        assert tol.value == "gvisor"
+        assert tol.effect == "NoSchedule"
+
+        # Annotation
+        assert pod.metadata.annotations["sandbox.gke.io/runtime"] == "gvisor"
+
+    def test_create_pod_manifest_gke_sandbox_disabled(self):
+        """Test GKE Sandbox disabled has no runtime class, node selector, or tolerations."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+            gke_sandbox_enabled=False,
+        )
+
+        assert pod.spec.runtime_class_name is None
+        assert pod.spec.node_selector is None
+        assert pod.spec.tolerations is None
+
+    def test_create_pod_manifest_gke_sandbox_custom_runtime_class(self):
+        """Test GKE Sandbox with custom runtime class name."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+            gke_sandbox_enabled=True,
+            runtime_class_name="custom-runtime",
+        )
+
+        assert pod.spec.runtime_class_name == "custom-runtime"
+
+    def test_create_pod_manifest_gke_sandbox_custom_node_selector(self):
+        """Test GKE Sandbox with additional custom node selector."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+            gke_sandbox_enabled=True,
+            sandbox_node_selector={"pool": "sandbox"},
+        )
+
+        assert pod.spec.node_selector["sandbox.gke.io/runtime"] == "gvisor"
+        assert pod.spec.node_selector["pool"] == "sandbox"
+
+    def test_create_pod_manifest_gke_sandbox_custom_tolerations(self):
+        """Test GKE Sandbox with additional custom tolerations."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+            gke_sandbox_enabled=True,
+            custom_tolerations=[{"key": "pool", "value": "sandbox"}],
+        )
+
+        # Should have both the GKE default + custom toleration
+        assert len(pod.spec.tolerations) == 2
+        keys = [t.key for t in pod.spec.tolerations]
+        assert "sandbox.gke.io/runtime" in keys
+        assert "pool" in keys
+
+    def test_create_pod_manifest_image_pull_secrets(self):
+        """Test pod manifest with image pull secrets."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+            image_pull_secrets=["my-registry-secret", "other-secret"],
+        )
+
+        assert pod.spec.image_pull_secrets is not None
+        assert len(pod.spec.image_pull_secrets) == 2
+        secret_names = [s.name for s in pod.spec.image_pull_secrets]
+        assert "my-registry-secret" in secret_names
+        assert "other-secret" in secret_names
+
+    def test_create_pod_manifest_no_image_pull_secrets(self):
+        """Test pod manifest without image pull secrets."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+        )
+
+        assert pod.spec.image_pull_secrets is None
+
+    def test_create_pod_manifest_gke_sandbox_with_annotations(self):
+        """Test GKE Sandbox merges with existing annotations."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+            annotations={"custom": "value"},
+            gke_sandbox_enabled=True,
+        )
+
+        assert pod.metadata.annotations["custom"] == "value"
+        assert pod.metadata.annotations["sandbox.gke.io/runtime"] == "gvisor"
+
+    def test_create_pod_manifest_gke_sandbox_requires_agent_mode(self):
+        """Test that GKE Sandbox works with agent mode (default)."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+            gke_sandbox_enabled=True,
+            execution_mode="agent",
+        )
+
+        # Should have both GKE Sandbox and agent mode features
+        assert pod.spec.runtime_class_name == "gvisor"
+        assert pod.spec.share_process_namespace is False
+        assert pod.spec.init_containers is not None
+
+        # Sidecar should have minimal privileges (agent mode)
+        sidecar = next(c for c in pod.spec.containers if c.name == "sidecar")
+        assert sidecar.security_context.allow_privilege_escalation is False

@@ -186,7 +186,7 @@ class PodPool:
             sidecar_cpu_request=self.config.sidecar_cpu_request,
             sidecar_memory_request=self.config.sidecar_memory_request,
             execution_mode=self.config.execution_mode,
-            executor_agent_port=self.config.executor_agent_port,
+            executor_port=self.config.executor_port,
             seccomp_profile_type=self.config.seccomp_profile_type,
             network_isolated=self.config.network_isolated,
             gke_sandbox_enabled=self.config.gke_sandbox_enabled,

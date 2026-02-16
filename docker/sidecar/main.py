@@ -45,8 +45,8 @@ NETWORK_ISOLATED = os.getenv("NETWORK_ISOLATED", "false").lower() in ("true", "1
 
 # Execution mode: "agent" (default, no nsenter) or "nsenter" (legacy)
 EXECUTION_MODE = os.getenv("EXECUTION_MODE", "agent")
-# Executor agent port (used in agent mode)
-EXECUTOR_AGENT_PORT = int(os.getenv("EXECUTOR_AGENT_PORT", "9090"))
+# Executor port (used in agent mode for the executor agent HTTP server)
+EXECUTOR_PORT = int(os.getenv("EXECUTOR_PORT", "9090"))
 
 class ExecuteRequest(BaseModel):
     """Request to execute code."""
@@ -231,93 +231,10 @@ def apply_network_isolation_overrides(env: dict[str, str], language: str) -> dic
     return env
 
 
-def get_language_command(
-    language: str, code: str, working_dir: str, container_env: dict[str, str]
-) -> tuple[list[str], Path | None]:
-    """Get the command to execute code for a given language.
+def _write_code_file(language: str, code: str, working_dir: str) -> tuple[list[str], Path | None]:
+    """Write code to a temp file and return the bare command to execute it.
 
-    Returns (command_list, temp_file_path_or_none).
-
-    Environment is always read from the container at runtime via /proc/<pid>/environ.
-    This eliminates config drift between Dockerfiles and sidecar code.
-
-    Two execution modes:
-    - Direct mode: Uses '/usr/bin/env -i' for single-command execution
-    - Shell mode: Uses 'sh -c' for multi-step (compile && run) commands
-
-    Both modes use the runtime-detected environment from the container.
-    """
-    # Use container env, fall back to minimal defaults if not available
-    env = container_env if container_env else {"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": "/tmp"}
-
-    # Single wrapper using /usr/bin/env -i with runtime-detected environment
-    def wrap(cmd_args: list[str]) -> list[str]:
-        env_args = [f"{k}={v}" for k, v in env.items()]
-        return ["/usr/bin/env", "-i"] + env_args + cmd_args
-
-    # Helper for compiled languages needing shell for compile && run
-    safe_wd = shlex.quote(working_dir)
-
-    if language in ("python", "py"):
-        code_file = Path(working_dir) / "code.py"
-        code_file.write_text(code)
-        return wrap(["python", str(code_file)]), code_file
-    elif language in ("javascript", "js"):
-        code_file = Path(working_dir) / "code.js"
-        code_file.write_text(code)
-        return wrap(["node", str(code_file)]), code_file
-    elif language in ("typescript", "ts"):
-        code_file = Path(working_dir) / "code.ts"
-        code_file.write_text(code)
-        return wrap(["node", "/opt/scripts/ts-runner.js", str(code_file)]), code_file
-    elif language in ("go",):
-        code_file = Path(working_dir) / "main.go"
-        code_file.write_text(code)
-        return wrap(["go", "run", str(code_file)]), code_file
-    elif language in ("rust", "rs"):
-        code_file = Path(working_dir) / "main.rs"
-        code_file.write_text(code)
-        return wrap(["sh", "-c", f"cd {safe_wd} && rustc {code_file} -o /tmp/main && /tmp/main"]), code_file
-    elif language in ("java",):
-        code_file = Path(working_dir) / "Code.java"
-        code_file.write_text(code)
-        return wrap(["sh", "-c", f"cd {safe_wd} && javac {code_file} && java -cp {working_dir} Code"]), code_file
-    elif language in ("c",):
-        code_file = Path(working_dir) / "code.c"
-        code_file.write_text(code)
-        return wrap(["sh", "-c", f"cd {safe_wd} && gcc {code_file} -o /tmp/code && /tmp/code"]), code_file
-    elif language in ("cpp",):
-        code_file = Path(working_dir) / "code.cpp"
-        code_file.write_text(code)
-        return wrap(["sh", "-c", f"cd {safe_wd} && g++ {code_file} -o /tmp/code && /tmp/code"]), code_file
-    elif language in ("php",):
-        code_file = Path(working_dir) / "code.php"
-        code_file.write_text(code)
-        return wrap(["php", str(code_file)]), code_file
-    elif language in ("r",):
-        code_file = Path(working_dir) / "code.r"
-        code_file.write_text(code)
-        return wrap(["Rscript", str(code_file)]), code_file
-    elif language in ("fortran", "f90"):
-        code_file = Path(working_dir) / "code.f90"
-        code_file.write_text(code)
-        return wrap(["sh", "-c", f"cd {safe_wd} && gfortran {code_file} -o /tmp/code && /tmp/code"]), code_file
-    elif language in ("d", "dlang"):
-        code_file = Path(working_dir) / "code.d"
-        code_file.write_text(code)
-        return wrap(["sh", "-c", f"cd {safe_wd} && ldc2 {code_file} -of=/tmp/code && /tmp/code"]), code_file
-    else:
-        return [], None
-
-
-def get_language_command_bare(
-    language: str, code: str, working_dir: str,
-) -> tuple[list[str], Path | None]:
-    """Get the bare command to execute code for a given language (no env -i wrapper).
-
-    Used in agent mode where the executor agent already inherits the correct
-    environment from the container's ENTRYPOINT.
-
+    This is the core (DRY) logic shared by both execution modes.
     Returns (command_list, temp_file_path_or_none).
     """
     safe_wd = shlex.quote(working_dir)
@@ -374,6 +291,44 @@ def get_language_command_bare(
         return [], None
 
 
+def get_language_command(
+    language: str, code: str, working_dir: str, container_env: dict[str, str]
+) -> tuple[list[str], Path | None]:
+    """Get the command to execute code for a given language (nsenter mode).
+
+    Wraps the bare command with `/usr/bin/env -i` and the container's environment
+    variables to ensure a clean, reproducible execution context.
+
+    Returns (command_list, temp_file_path_or_none).
+
+    Environment is always read from the container at runtime via /proc/<pid>/environ.
+    This eliminates config drift between Dockerfiles and sidecar code.
+    """
+    cmd, temp_file = _write_code_file(language, code, working_dir)
+    if not cmd:
+        return [], None
+
+    # Use container env, fall back to minimal defaults if not available
+    env = container_env if container_env else {"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": "/tmp"}
+
+    # Wrap with /usr/bin/env -i for a clean environment
+    env_args = [f"{k}={v}" for k, v in env.items()]
+    return ["/usr/bin/env", "-i"] + env_args + cmd, temp_file
+
+
+def get_language_command_bare(
+    language: str, code: str, working_dir: str,
+) -> tuple[list[str], Path | None]:
+    """Get the bare command to execute code for a given language (agent mode).
+
+    Used in agent mode where the executor agent already inherits the correct
+    environment from the container's ENTRYPOINT. No env -i wrapper needed.
+
+    Returns (command_list, temp_file_path_or_none).
+    """
+    return _write_code_file(language, code, working_dir)
+
+
 def get_network_isolation_overrides(language: str) -> dict[str, str]:
     """Get environment variable overrides for network-isolated execution.
 
@@ -427,7 +382,7 @@ async def execute_via_agent(request: ExecuteRequest) -> ExecuteResponse:
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"http://127.0.0.1:{EXECUTOR_AGENT_PORT}/execute",
+                f"http://127.0.0.1:{EXECUTOR_PORT}/execute",
                 json={
                     "command": cmd,
                     "timeout": request.timeout,
@@ -464,7 +419,7 @@ async def execute_via_agent(request: ExecuteRequest) -> ExecuteResponse:
         return ExecuteResponse(
             exit_code=1,
             stdout="",
-            stderr=f"Cannot connect to executor agent at 127.0.0.1:{EXECUTOR_AGENT_PORT}. "
+            stderr=f"Cannot connect to executor agent at 127.0.0.1:{EXECUTOR_PORT}. "
                    f"Ensure the main container is running the executor agent.",
             execution_time_ms=int((time.perf_counter() - start_time) * 1000),
         )
@@ -775,7 +730,7 @@ async def readiness_check():
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.get(
-                    f"http://127.0.0.1:{EXECUTOR_AGENT_PORT}/health",
+                    f"http://127.0.0.1:{EXECUTOR_PORT}/health",
                     timeout=2,
                 )
                 if resp.status_code != 200:

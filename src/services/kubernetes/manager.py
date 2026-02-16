@@ -41,13 +41,13 @@ class KubernetesManager:
         self,
         namespace: str | None = None,
         pool_configs: list[PoolConfig] | None = None,
-        sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest",
+        sidecar_image: str = "aronmuon/kubecoderun-sidecar-agent:latest",
         default_cpu_limit: str = "1",
         default_memory_limit: str = "512Mi",
         default_cpu_request: str = "100m",
         default_memory_request: str = "128Mi",
         execution_mode: str = "agent",
-        executor_agent_port: int = 9090,
+        executor_port: int = 9090,
         seccomp_profile_type: str = "RuntimeDefault",
         network_isolated: bool = False,
         gke_sandbox_enabled: bool = False,
@@ -67,7 +67,7 @@ class KubernetesManager:
             default_cpu_request: Default CPU request for pods
             default_memory_request: Default memory request for pods
             execution_mode: Execution mode - "agent" (default) or "nsenter"
-            executor_agent_port: Port for executor agent (agent mode only)
+            executor_port: Port for executor HTTP server in the main container
             seccomp_profile_type: Seccomp profile type (RuntimeDefault, Unconfined, Localhost)
             network_isolated: Whether network isolation is enabled (disables network-dependent features)
             gke_sandbox_enabled: Enable GKE Sandbox (gVisor) for additional kernel isolation
@@ -83,7 +83,7 @@ class KubernetesManager:
         self.default_cpu_request = default_cpu_request
         self.default_memory_request = default_memory_request
         self.execution_mode = execution_mode
-        self.executor_agent_port = executor_agent_port
+        self.executor_port = executor_port
         self.seccomp_profile_type = seccomp_profile_type
         self.network_isolated = network_isolated
         self.gke_sandbox_enabled = gke_sandbox_enabled
@@ -308,7 +308,7 @@ class KubernetesManager:
                 cpu_request=self.default_cpu_request,
                 memory_request=self.default_memory_request,
                 execution_mode=self.execution_mode,
-                executor_agent_port=self.executor_agent_port,
+                executor_port=self.executor_port,
                 seccomp_profile_type=self.seccomp_profile_type,
                 network_isolated=self.network_isolated,
                 gke_sandbox_enabled=self.gke_sandbox_enabled,
