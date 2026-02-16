@@ -93,9 +93,6 @@ ARG VCS_REF
 COPY --from=builder-common /opt/python/lib/python3.13/site-packages /opt/python/lib/python3.13/site-packages
 COPY --from=builder-common /opt/python/bin /opt/python/bin
 
-# Copy /usr/bin/env for nsenter execution patterns (copied to sidecar-nsenter only)
-COPY --from=builder-common /usr/bin/env /usr/bin/env.staging
-
 # Copy data directory with correct ownership (DHI uses UID 65532)
 COPY --from=builder-common /mnt/data /mnt/data
 
@@ -159,9 +156,6 @@ LABEL org.opencontainers.image.title="KubeCodeRun Sidecar (Agent)" \
 # Copy executor agent binary (distributed to main container via init container)
 COPY --from=agent-builder /opt/executor-agent /opt/executor-agent
 
-# Remove staged env binary — agent mode does not use /usr/bin/env
-RUN rm -f /usr/bin/env.staging
-
 ENV EXECUTION_MODE=agent
 
 
@@ -194,8 +188,8 @@ LABEL org.opencontainers.image.title="KubeCodeRun Sidecar (nsenter)" \
 # Copy nsenter with file capabilities from nsenter builder
 COPY --from=builder-nsenter /usr/bin/nsenter /usr/bin/
 
-# Move staged env binary into place — nsenter mode uses /usr/bin/env -i for clean execution
-RUN mv /usr/bin/env.staging /usr/bin/env
+# Copy /usr/bin/env from builder — nsenter mode uses /usr/bin/env -i for clean execution
+COPY --from=builder-common /usr/bin/env /usr/bin/env
 
 # Copy shared libraries needed by nsenter (libselinux, libpcre2) for both architectures
 # Note: Only one arch directory will have content depending on build platform
