@@ -132,6 +132,16 @@ class Settings(BaseSettings):
     k8s_cpu_request: str = Field(default="100m", description="CPU request for execution pods")
     k8s_memory_request: str = Field(default="128Mi", description="Memory request for execution pods")
     k8s_run_as_user: int = Field(default=65532, ge=1, description="UID to run containers as")
+    k8s_execution_mode: Literal["agent", "nsenter"] = Field(
+        default="agent",
+        description="Execution mode: 'agent' (no nsenter/capabilities, gVisor-safe) or 'nsenter' (legacy)",
+    )
+    k8s_executor_agent_port: int = Field(
+        default=9090,
+        ge=1,
+        le=65535,
+        description="Port for the executor agent HTTP server in agent mode",
+    )
     k8s_seccomp_profile_type: Literal["RuntimeDefault", "Unconfined"] = Field(
         default="RuntimeDefault",
         description="Seccomp profile type for execution pods",
@@ -156,6 +166,10 @@ class Settings(BaseSettings):
     k8s_image_pull_policy: str = Field(
         default="Always",
         description="Image pull policy for execution pods (Always, IfNotPresent, Never)",
+    )
+    k8s_image_pull_secrets: str = Field(
+        default="",
+        description="Comma-separated list of secret names for pulling images from private registries",
     )
 
     # GKE Sandbox (gVisor) Configuration
@@ -567,7 +581,7 @@ class Settings(BaseSettings):
     def kubernetes(self) -> KubernetesConfig:
         """Access Kubernetes configuration group."""
         import json
-        
+
         # Parse JSON strings for node selector and tolerations
         sandbox_node_selector = None
         if self.gke_sandbox_node_selector:
@@ -575,14 +589,14 @@ class Settings(BaseSettings):
                 sandbox_node_selector = json.loads(self.gke_sandbox_node_selector)
             except json.JSONDecodeError:
                 pass
-        
+
         custom_tolerations = None
         if self.gke_sandbox_custom_tolerations:
             try:
                 custom_tolerations = json.loads(self.gke_sandbox_custom_tolerations)
             except json.JSONDecodeError:
                 pass
-        
+
         return KubernetesConfig(
             namespace=self.k8s_namespace,
             service_account=self.k8s_service_account,
@@ -597,6 +611,8 @@ class Settings(BaseSettings):
             cpu_request=self.k8s_cpu_request,
             memory_request=self.k8s_memory_request,
             run_as_user=self.k8s_run_as_user,
+            execution_mode=self.k8s_execution_mode,
+            executor_agent_port=self.k8s_executor_agent_port,
             seccomp_profile_type=self.k8s_seccomp_profile_type,
             job_ttl_seconds_after_finished=self.k8s_job_ttl_seconds,
             job_active_deadline_seconds=self.k8s_job_deadline_seconds,
@@ -625,7 +641,7 @@ class Settings(BaseSettings):
                 sandbox_node_selector = json.loads(self.gke_sandbox_node_selector)
             except json.JSONDecodeError:
                 pass
-        
+
         custom_tolerations = None
         if self.gke_sandbox_custom_tolerations:
             try:
@@ -665,6 +681,11 @@ class Settings(BaseSettings):
             sidecar_cpu_request = os.getenv(f"LANG_CPU_REQUEST_{lang_upper}") or self.k8s_sidecar_cpu_request
             sidecar_memory_request = os.getenv(f"LANG_MEMORY_REQUEST_{lang_upper}") or self.k8s_sidecar_memory_request
 
+            # Parse image pull secrets (comma-separated string -> list)
+            pull_secrets = None
+            if self.k8s_image_pull_secrets:
+                pull_secrets = [s.strip() for s in self.k8s_image_pull_secrets.split(",") if s.strip()]
+
             configs.append(
                 PoolConfig(
                     language=lang,
@@ -678,6 +699,9 @@ class Settings(BaseSettings):
                     sidecar_cpu_request=sidecar_cpu_request,
                     sidecar_memory_request=sidecar_memory_request,
                     image_pull_policy=self.k8s_image_pull_policy,
+                    image_pull_secrets=pull_secrets,
+                    execution_mode=self.k8s_execution_mode,
+                    executor_agent_port=self.k8s_executor_agent_port,
                     seccomp_profile_type=self.k8s_seccomp_profile_type,
                     network_isolated=self.enable_network_isolation,
                     gke_sandbox_enabled=self.gke_sandbox_enabled,

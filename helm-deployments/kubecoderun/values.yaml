@@ -172,6 +172,13 @@ execution:
   # Image pull policy for execution pods (IfNotPresent, Always, Never)
   imagePullPolicy: "IfNotPresent"
 
+  # Image pull secrets for private registries (applies to execution pods)
+  # Example:
+  # imagePullSecrets:
+  #   - name: secret-for-registry
+  #   - name: another-secret
+  imagePullSecrets: []
+
   # Service account for execution pods (with pod/job create permissions)
   serviceAccount:
     create: true
@@ -290,27 +297,38 @@ execution:
   # See: https://docs.cloud.google.com/kubernetes-engine/docs/concepts/sandbox-pods
   gkeSandbox:
     # Enable GKE Sandbox for execution pods
-    enabled: false
-    
+    enabled: true
+
     # Runtime class name (default: gvisor for GKE)
     runtimeClassName: "gvisor"
-    
+
     # Node selector for sandbox-enabled nodes
     # GKE automatically adds sandbox.gke.io/runtime=gvisor to sandbox nodes
     # Add additional selectors here if needed (e.g., for specific node pools)
-    nodeSelector: {}
+    nodeSelector:
+      sandbox.gke.io/runtime: gvisor
     # Example:
     #   cloud.google.com/gke-nodepool: sandbox-pool
-    
+
     # Custom tolerations for node pool taints
     # GKE automatically adds toleration for sandbox.gke.io/runtime=gvisor
     # Use this for additional custom taints (e.g., dedicated sandbox node pools)
-    customTolerations: []
+    customTolerations:
     # Example:
     # - key: pool
     #   operator: Equal
     #   value: sandbox
     #   effect: NoSchedule
+      # Custom node pool taint
+      - key: pool
+        operator: Equal
+        value: sandbox
+        effect: NoSchedule
+      # GKE Sandbox standard taint
+      - key: sandbox.gke.io/runtime
+        operator: Equal
+        value: gvisor
+        effect: NoSchedule
 
 # Resource Limits Configuration
 resourceLimits:

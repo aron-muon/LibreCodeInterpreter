@@ -46,12 +46,15 @@ class KubernetesManager:
         default_memory_limit: str = "512Mi",
         default_cpu_request: str = "100m",
         default_memory_request: str = "128Mi",
+        execution_mode: str = "agent",
+        executor_agent_port: int = 9090,
         seccomp_profile_type: str = "RuntimeDefault",
         network_isolated: bool = False,
         gke_sandbox_enabled: bool = False,
         runtime_class_name: str = "gvisor",
         sandbox_node_selector: dict[str, str] | None = None,
         custom_tolerations: list[dict[str, str]] | None = None,
+        image_pull_secrets: list[str] | None = None,
     ):
         """Initialize the Kubernetes manager.
 
@@ -63,12 +66,15 @@ class KubernetesManager:
             default_memory_limit: Default memory limit for pods
             default_cpu_request: Default CPU request for pods
             default_memory_request: Default memory request for pods
+            execution_mode: Execution mode - "agent" (default) or "nsenter"
+            executor_agent_port: Port for executor agent (agent mode only)
             seccomp_profile_type: Seccomp profile type (RuntimeDefault, Unconfined, Localhost)
             network_isolated: Whether network isolation is enabled (disables network-dependent features)
             gke_sandbox_enabled: Enable GKE Sandbox (gVisor) for additional kernel isolation
             runtime_class_name: Runtime class name for sandboxed pods
             sandbox_node_selector: Node selector for sandbox-enabled nodes
             custom_tolerations: Custom tolerations for node pool taints
+            image_pull_secrets: List of secret names for pulling images from private registries
         """
         self.namespace = namespace or get_current_namespace()
         self.sidecar_image = sidecar_image
@@ -76,17 +82,21 @@ class KubernetesManager:
         self.default_memory_limit = default_memory_limit
         self.default_cpu_request = default_cpu_request
         self.default_memory_request = default_memory_request
+        self.execution_mode = execution_mode
+        self.executor_agent_port = executor_agent_port
         self.seccomp_profile_type = seccomp_profile_type
         self.network_isolated = network_isolated
         self.gke_sandbox_enabled = gke_sandbox_enabled
         self.runtime_class_name = runtime_class_name
         self.sandbox_node_selector = sandbox_node_selector
         self.custom_tolerations = custom_tolerations
+        self.image_pull_secrets = image_pull_secrets
+        self._pool_configs = pool_configs or []
 
         # Pool manager for warm pods
         self._pool_manager = PodPoolManager(
             namespace=self.namespace,
-            configs=pool_configs or [],
+            configs=self._pool_configs,
         )
 
         # Job executor for cold languages
@@ -280,6 +290,13 @@ class KubernetesManager:
             return result, handle, source
         else:
             # Use Job execution
+            # Get image_pull_secrets from pool config for this language
+            pull_secrets = self.image_pull_secrets
+            for config in self._pool_configs:
+                if config.language.lower() == language.lower():
+                    pull_secrets = config.image_pull_secrets or self.image_pull_secrets
+                    break
+
             spec = PodSpec(
                 language=language,
                 image=self.get_image_for_language(language),
@@ -290,12 +307,15 @@ class KubernetesManager:
                 memory_limit=self.default_memory_limit,
                 cpu_request=self.default_cpu_request,
                 memory_request=self.default_memory_request,
+                execution_mode=self.execution_mode,
+                executor_agent_port=self.executor_agent_port,
                 seccomp_profile_type=self.seccomp_profile_type,
                 network_isolated=self.network_isolated,
                 gke_sandbox_enabled=self.gke_sandbox_enabled,
                 runtime_class_name=self.runtime_class_name,
                 sandbox_node_selector=self.sandbox_node_selector,
                 custom_tolerations=self.custom_tolerations,
+                image_pull_secrets=pull_secrets,
             )
 
             result = await self._job_executor.execute_with_job(

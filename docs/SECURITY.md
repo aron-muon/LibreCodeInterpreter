@@ -113,7 +113,75 @@ Code is analyzed for potentially dangerous patterns:
 - **Security context**: Pods run as non-root (`runAsUser: 65532`)
 - **Ephemeral execution**: Pods destroyed immediately after execution
 
-#### Namespace Sharing Security (nsenter)
+#### Execution Modes
+
+KubeCodeRun supports two execution modes, controlled by the `K8S_EXECUTION_MODE` environment variable:
+
+##### Agent Mode (Default) — `K8S_EXECUTION_MODE=agent`
+
+In agent mode, a lightweight Go HTTP server (the **executor agent**) runs inside the main language container. The sidecar forwards execution requests to it over `localhost` (pod-internal network). This eliminates the need for `nsenter`, Linux capabilities, privilege escalation, and `shareProcessNamespace`.
+
+**How it works:**
+
+1. An **init container** (using the sidecar image) copies the executor agent binary from `/opt/executor-agent` to the shared volume at `/mnt/data/.executor-agent`
+2. The main container's CMD is overridden to run `/mnt/data/.executor-agent` instead of `sleep infinity`
+3. The executor agent starts an HTTP server on `127.0.0.1:9090` (configurable via `K8S_EXECUTOR_AGENT_PORT`)
+4. The sidecar sends execution requests to the agent via HTTP POST to `/execute`
+5. The agent spawns subprocesses (e.g., `python code.py`) inheriting the container's sanitized environment
+
+**Pod Settings (agent mode):**
+```yaml
+spec:
+  # No shareProcessNamespace needed
+  initContainers:
+  - name: agent-init
+    image: <sidecar-image>
+    command: ["cp", "/opt/executor-agent", "/mnt/data/.executor-agent"]
+    securityContext:
+      runAsUser: 65532
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+  containers:
+  - name: main
+    args: ["/mnt/data/.executor-agent"]  # Runs via existing ENTRYPOINT env -i
+    securityContext:
+      runAsUser: 65532
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+  - name: sidecar
+    env:
+    - name: EXECUTION_MODE
+      value: "agent"
+    - name: EXECUTOR_AGENT_PORT
+      value: "9090"
+    securityContext:
+      runAsUser: 65532
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+```
+
+**Security advantages of agent mode:**
+
+| Feature | Benefit |
+|---------|---------|
+| No `shareProcessNamespace` | Containers cannot see each other's processes |
+| No capabilities | All capabilities dropped for all containers |
+| No `allowPrivilegeEscalation` | No binary can gain elevated privileges |
+| No `nsenter` | No namespace entry, no mount namespace sharing |
+| GKE Sandbox (gVisor) compatible | Works with the most restrictive Pod Security Standards |
+| Communication via localhost | Pod-internal only, not network-accessible |
+
+##### nsenter Mode (Legacy) — `K8S_EXECUTION_MODE=nsenter`
+
+In nsenter mode, the sidecar uses Linux `nsenter` to execute code in the main container's mount namespace. This requires elevated privileges and is preserved for backward compatibility with clusters that allow privilege escalation.
+
+**Namespace Sharing Security (nsenter)**
 
 The sidecar container uses Linux `nsenter` to execute code in the main container's mount namespace. This requires specific pod and image configuration.
 

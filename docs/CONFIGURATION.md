@@ -182,15 +182,22 @@ Kubernetes is used for secure code execution in isolated pods.
 | `K8S_MEMORY_LIMIT`     | `512Mi`                                      | Memory limit per execution pod           |
 | `K8S_CPU_REQUEST`      | `100m`                                       | CPU request per execution pod            |
 | `K8S_MEMORY_REQUEST`   | `128Mi`                                      | Memory request per execution pod         |
+| `K8S_EXECUTION_MODE`   | `agent`                                      | Execution mode: `agent` (default) or `nsenter` |
+| `K8S_EXECUTOR_AGENT_PORT` | `9090`                                    | Port for executor agent HTTP server (agent mode only) |
+
+**Execution Modes:**
+
+- **`agent` (default):** A lightweight Go HTTP server runs inside the main container. The sidecar forwards execution requests via localhost. No `nsenter`, no capabilities, no privilege escalation. Compatible with GKE Sandbox (gVisor) and restricted Pod Security Standards.
+- **`nsenter` (legacy):** The sidecar uses `nsenter` to enter the main container's mount namespace. Requires `shareProcessNamespace`, `SYS_PTRACE`/`SYS_ADMIN`/`SYS_CHROOT` capabilities, and `allowPrivilegeEscalation: true`. Use only on clusters that allow privilege escalation.
 
 **Security Notes:**
 
 - Both containers run with `runAsNonRoot: true` and `runAsUser: 65532`
-- The sidecar uses file capabilities (`setcap`) on the `nsenter` binary to allow non-root users to enter namespaces
-- Required pod capabilities (SYS_PTRACE, SYS_ADMIN, SYS_CHROOT) must be in the bounding set with `allowPrivilegeEscalation: true`
+- In agent mode: all capabilities are dropped, `allowPrivilegeEscalation: false` for all containers
+- In nsenter mode: the sidecar uses file capabilities (`setcap`) on the `nsenter` binary to allow non-root namespace entry
 - Network policies deny all egress by default
 - Pods are destroyed immediately after execution
-- See [SECURITY.md](SECURITY.md) for detailed explanation of the nsenter privilege model
+- See [SECURITY.md](SECURITY.md) for detailed explanation of the security model
 
 ### Resource Limits
 

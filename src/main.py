@@ -143,6 +143,11 @@ async def lifespan(app: FastAPI):
             # Build pool configs from settings
             pool_configs = settings.get_pool_configs()
 
+            # Parse image pull secrets (comma-separated string -> list)
+            pull_secrets = None
+            if settings.k8s_image_pull_secrets:
+                pull_secrets = [s.strip() for s in settings.k8s_image_pull_secrets.split(",") if s.strip()]
+
             kubernetes_manager = KubernetesManager(
                 namespace=settings.k8s_namespace or None,
                 pool_configs=pool_configs,
@@ -151,12 +156,15 @@ async def lifespan(app: FastAPI):
                 default_memory_limit=settings.k8s_memory_limit,
                 default_cpu_request=settings.k8s_cpu_request,
                 default_memory_request=settings.k8s_memory_request,
+                execution_mode=settings.k8s_execution_mode,
+                executor_agent_port=settings.k8s_executor_agent_port,
                 seccomp_profile_type=settings.k8s_seccomp_profile_type,
                 network_isolated=settings.enable_network_isolation,
                 gke_sandbox_enabled=settings.gke_sandbox_enabled,
                 runtime_class_name=settings.gke_sandbox_runtime_class,
                 sandbox_node_selector=settings.kubernetes.sandbox_node_selector,
                 custom_tolerations=settings.kubernetes.custom_tolerations,
+                image_pull_secrets=pull_secrets,
             )
 
             await kubernetes_manager.start()

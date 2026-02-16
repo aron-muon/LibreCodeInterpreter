@@ -123,6 +123,8 @@ class JobExecutor:
             sidecar_memory_limit=spec.sidecar_memory_limit,
             sidecar_cpu_request=spec.sidecar_cpu_request,
             sidecar_memory_request=spec.sidecar_memory_request,
+            execution_mode=spec.execution_mode,
+            executor_agent_port=spec.executor_agent_port,
             seccomp_profile_type=spec.seccomp_profile_type,
             network_isolated=spec.network_isolated,
             gke_sandbox_enabled=spec.gke_sandbox_enabled,

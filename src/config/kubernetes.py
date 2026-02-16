@@ -39,6 +39,14 @@ class KubernetesConfig:
     run_as_non_root: bool = True
     seccomp_profile_type: str = "RuntimeDefault"
 
+    # Execution mode: "agent" (default, no nsenter/capabilities needed) or "nsenter" (legacy)
+    # agent: Executor agent runs in main container, no privilege escalation or capabilities needed
+    # nsenter: Sidecar uses nsenter to enter main container namespace (requires capabilities)
+    execution_mode: str = "agent"
+
+    # Executor agent port (used in agent mode, main container listens on this port)
+    executor_agent_port: int = 9090
+
     # Job settings (for languages with pool_size=0)
     job_ttl_seconds_after_finished: int = 60
     job_active_deadline_seconds: int = 300
@@ -52,18 +60,23 @@ class KubernetesConfig:
     # e.g., aronmuon/kubecoderun-python:latest
     image_registry: str = "aronmuon/kubecoderun"
     image_tag: str = "latest"
+    image_pull_policy: str = "IfNotPresent"
+
+    # Image pull secrets for private registries
+    # Format: comma-separated list of secret names, e.g., "secret-for-registry,another-secret"
+    image_pull_secrets: str = ""
 
     # GKE Sandbox (gVisor) configuration
     # When enabled, pods run with additional kernel isolation via gVisor
     gke_sandbox_enabled: bool = False
-    
+
     # Runtime class name for sandboxed pods (default: gvisor for GKE)
     runtime_class_name: str = "gvisor"
-    
+
     # Node selector for sandbox nodes
     # GKE automatically adds: sandbox.gke.io/runtime=gvisor
     sandbox_node_selector: dict[str, str] | None = None
-    
+
     # Custom tolerations for execution pods
     # GKE Sandbox automatically adds toleration for sandbox.gke.io/runtime=gvisor
     # Use this for additional custom node pool taints (e.g., pool=sandbox)

@@ -106,7 +106,9 @@ class PodSpec:
     cpu_request: str = "100m"
     memory_request: str = "128Mi"
 
-    # Sidecar resource limits (CRITICAL: user code runs in sidecar's cgroup via nsenter)
+    # Sidecar resource limits
+    # In nsenter mode: user code runs in sidecar's cgroup via nsenter
+    # In agent mode: user code runs in main container's cgroup
     sidecar_cpu_limit: str = "500m"
     sidecar_memory_limit: str = "512Mi"
     sidecar_cpu_request: str = "100m"
@@ -116,11 +118,16 @@ class PodSpec:
     run_as_user: int = 65532
     run_as_group: int = 65532
     run_as_non_root: bool = True
+    execution_mode: str = "agent"  # "agent" or "nsenter"
+    executor_agent_port: int = 9090
     seccomp_profile_type: str = "RuntimeDefault"
 
     # Sidecar configuration
     sidecar_image: str = "aronmuon/kubecoderun-sidecar:latest"
     sidecar_port: int = 8080
+
+    # Image pull secrets (list of secret names)
+    image_pull_secrets: list[str] | None = None
 
     # Network isolation mode - disables network-dependent features (e.g., Go module proxy)
     network_isolated: bool = False
@@ -145,7 +152,9 @@ class PoolConfig:
     cpu_limit: str | None = None
     memory_limit: str | None = None
 
-    # Sidecar resource limits (CRITICAL: user code runs in sidecar's cgroup via nsenter)
+    # Sidecar resource limits
+    # In nsenter mode: user code runs in sidecar's cgroup via nsenter
+    # In agent mode: user code runs in main container's cgroup
     sidecar_cpu_limit: str = "500m"
     sidecar_memory_limit: str = "512Mi"
     sidecar_cpu_request: str = "100m"
@@ -154,7 +163,12 @@ class PoolConfig:
     # Image pull policy (Always, IfNotPresent, Never)
     image_pull_policy: str = "Always"
 
-    # Seccomp profile type (RuntimeDefault, Unconfined, Localhost)
+    # Image pull secrets (list of secret names)
+    image_pull_secrets: list[str] | None = None
+
+    # Execution mode and security settings
+    execution_mode: str = "agent"  # "agent" or "nsenter"
+    executor_agent_port: int = 9090
     seccomp_profile_type: str = "RuntimeDefault"
 
     # Network isolation mode - disables network-dependent features (e.g., Go module proxy)

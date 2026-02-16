@@ -417,6 +417,102 @@ class TestCreatePodManifest:
         assert main_container.security_context.run_as_user == 1001
         assert main_container.security_context.run_as_non_root is True
 
+    def test_create_pod_manifest_agent_mode_default(self):
+        """Test that agent mode is the default execution mode."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+        )
+
+        # Agent mode: no shareProcessNamespace
+        assert pod.spec.share_process_namespace is False
+
+        # Agent mode: init container copies executor agent to shared volume
+        assert pod.spec.init_containers is not None
+        assert len(pod.spec.init_containers) == 1
+        init_container = pod.spec.init_containers[0]
+        assert init_container.name == "agent-init"
+        assert init_container.command[0] == "python"
+        assert "/opt/executor-agent" in init_container.command[2]
+        assert "/mnt/data/.executor-agent" in init_container.command[2]
+
+        # Agent mode: main container runs executor agent
+        main_container = next(c for c in pod.spec.containers if c.name == "main")
+        assert main_container.args == ["/mnt/data/.executor-agent"]
+
+        # Agent mode: sidecar has EXECUTION_MODE and EXECUTOR_AGENT_PORT env vars
+        sidecar = next(c for c in pod.spec.containers if c.name == "sidecar")
+        env_dict = {e.name: e.value for e in sidecar.env}
+        assert env_dict["EXECUTION_MODE"] == "agent"
+        assert env_dict["EXECUTOR_AGENT_PORT"] == "9090"
+
+        # Agent mode: no capabilities, no privilege escalation for sidecar
+        assert sidecar.security_context.allow_privilege_escalation is False
+        assert sidecar.security_context.capabilities.drop == ["ALL"]
+        assert sidecar.security_context.capabilities.add is None
+
+        # Agent mode: no capabilities, no privilege escalation for main
+        assert main_container.security_context.allow_privilege_escalation is False
+        assert main_container.security_context.capabilities.drop == ["ALL"]
+
+        # Agent mode: init container also has minimal security
+        assert init_container.security_context.allow_privilege_escalation is False
+        assert init_container.security_context.capabilities.drop == ["ALL"]
+
+    def test_create_pod_manifest_nsenter_mode(self):
+        """Test nsenter mode has the required capabilities and settings."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+            execution_mode="nsenter",
+        )
+
+        # nsenter mode: shareProcessNamespace required
+        assert pod.spec.share_process_namespace is True
+
+        # nsenter mode: no init containers
+        assert pod.spec.init_containers is None
+
+        # nsenter mode: main container uses default CMD (no args override)
+        main_container = next(c for c in pod.spec.containers if c.name == "main")
+        assert main_container.args is None
+
+        # nsenter mode: sidecar has elevated privileges
+        sidecar = next(c for c in pod.spec.containers if c.name == "sidecar")
+        assert sidecar.security_context.allow_privilege_escalation is True
+        assert set(sidecar.security_context.capabilities.add) == {"SYS_PTRACE", "SYS_ADMIN", "SYS_CHROOT"}
+
+        # nsenter mode: EXECUTION_MODE is set to nsenter
+        env_dict = {e.name: e.value for e in sidecar.env}
+        assert env_dict["EXECUTION_MODE"] == "nsenter"
+        # nsenter mode: no EXECUTOR_AGENT_PORT env var
+        assert "EXECUTOR_AGENT_PORT" not in env_dict
+
+    def test_create_pod_manifest_agent_mode_executor_port(self):
+        """Test that agent mode uses the configured executor agent port."""
+        pod = client.create_pod_manifest(
+            name="test-pod",
+            namespace="test-ns",
+            main_image="python:3.12",
+            sidecar_image="sidecar:latest",
+            language="python",
+            labels={"app": "test"},
+            execution_mode="agent",
+            executor_agent_port=8888,
+        )
+
+        sidecar = next(c for c in pod.spec.containers if c.name == "sidecar")
+        env_dict = {e.name: e.value for e in sidecar.env}
+        assert env_dict["EXECUTOR_AGENT_PORT"] == "8888"
+
     def test_create_pod_manifest_seccomp_profile_default(self):
         """Test pod manifest has RuntimeDefault seccomp profile by default."""
         pod = client.create_pod_manifest(

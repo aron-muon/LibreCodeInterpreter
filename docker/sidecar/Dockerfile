@@ -6,6 +6,17 @@ ARG VERSION
 ARG VCS_REF
 
 ################################
+# Executor agent build stage - statically compiled Go binary
+# This binary runs in the main container (via init container copy)
+# to provide HTTP-based code execution without nsenter.
+################################
+FROM golang:1.23-alpine AS agent-builder
+
+WORKDIR /build
+COPY executor-agent/ .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -trimpath -o /opt/executor-agent .
+
+################################
 # Builder stage - install Python dependencies and runtime tools
 ################################
 FROM dhi.io/python:3.13-debian13-dev AS builder
@@ -72,14 +83,17 @@ COPY --from=builder /lib/aarch64-linux-gnu /lib/aarch64-linux-gnu
 COPY --from=builder /opt/python/lib/python3.13/site-packages /opt/python/lib/python3.13/site-packages
 COPY --from=builder /opt/python/bin /opt/python/bin
 
-# Copy /usr/bin/env for execution patterns, sleep for CMD
-COPY --from=builder /usr/bin/env /usr/bin/sleep /usr/bin/
+# Copy /usr/bin/env for execution patterns, sleep for CMD, cp for init container
+COPY --from=builder /usr/bin/env /usr/bin/sleep /usr/bin/cp /usr/bin/
 
 # Copy data directory with correct ownership (DHI uses UID 65532)
 COPY --from=builder /mnt/data /mnt/data
 
 # Copy application code
 COPY --from=builder /app /app
+
+# Copy executor agent binary (used by init container to copy to shared volume)
+COPY --from=agent-builder /opt/executor-agent /opt/executor-agent
 
 WORKDIR /app
 
@@ -102,12 +116,21 @@ ENV VERSION=${VERSION} \
     MAX_EXECUTION_TIME=120 \
     PYTHONUNBUFFERED=1
 
-# Kubernetes pod spec still requires:
-# - shareProcessNamespace: true (so sidecar can see main container's processes)
-# - securityContext.capabilities.add: ["SYS_PTRACE", "SYS_ADMIN", "SYS_CHROOT"]
-#   (to allow the bounding set to include these caps)
-# - securityContext.allowPrivilegeEscalation: true
-#   (required for file capabilities to be honored)
+# Kubernetes pod spec requirements depend on execution mode:
+#
+# Agent mode (EXECUTION_MODE=agent, default):
+#   - No shareProcessNamespace needed
+#   - No capabilities needed
+#   - allowPrivilegeEscalation: false for all containers
+#   - Init container copies /opt/executor-agent to shared volume
+#   - Main container runs executor-agent instead of sleep infinity
+#   - Compatible with GKE Sandbox (gVisor) and restricted Pod Security Standards
+#
+# nsenter mode (EXECUTION_MODE=nsenter, legacy):
+#   - shareProcessNamespace: true (so sidecar can see main container's processes)
+#   - securityContext.capabilities.add: ["SYS_PTRACE", "SYS_ADMIN", "SYS_CHROOT"]
+#   - securityContext.allowPrivilegeEscalation: true
+#     (required for file capabilities to be honored)
 
 # DHI images run as non-root (UID 65532) by default
 # File capabilities on nsenter allow this user to use nsenter with required privileges

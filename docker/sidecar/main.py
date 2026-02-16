@@ -2,10 +2,17 @@
 """HTTP Sidecar for Kubernetes Pod Execution.
 
 This sidecar runs alongside the main language container and provides
-an HTTP API for code execution. It uses nsenter to execute code in
-the main container's mount namespace.
+an HTTP API for code execution. It supports two execution modes:
 
-Requires: shareProcessNamespace: true in the pod spec.
+1. Agent mode (default): Forwards execution requests to an executor agent
+   HTTP server running inside the main container. No nsenter, no capabilities,
+   no privilege escalation needed. Compatible with GKE Sandbox (gVisor).
+
+2. nsenter mode (legacy): Uses nsenter to execute code in the main container's
+   mount namespace. Requires shareProcessNamespace, SYS_PTRACE, SYS_ADMIN,
+   SYS_CHROOT capabilities, and allowPrivilegeEscalation: true.
+
+The mode is controlled by the EXECUTION_MODE environment variable.
 """
 
 import asyncio
@@ -19,6 +26,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import httpx
 from fastapi import FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -34,6 +42,11 @@ MAIN_PROCESS_NAME = os.getenv("MAIN_PROCESS_NAME", "")
 VERSION = os.getenv("VERSION", "0.0.0-dev")
 # Network isolation mode - when true, disables network-dependent features (e.g., Go module proxy)
 NETWORK_ISOLATED = os.getenv("NETWORK_ISOLATED", "false").lower() in ("true", "1", "yes")
+
+# Execution mode: "agent" (default, no nsenter) or "nsenter" (legacy)
+EXECUTION_MODE = os.getenv("EXECUTION_MODE", "agent")
+# Executor agent port (used in agent mode)
+EXECUTOR_AGENT_PORT = int(os.getenv("EXECUTOR_AGENT_PORT", "9090"))
 
 class ExecuteRequest(BaseModel):
     """Request to execute code."""
@@ -297,6 +310,174 @@ def get_language_command(
         return [], None
 
 
+def get_language_command_bare(
+    language: str, code: str, working_dir: str,
+) -> tuple[list[str], Path | None]:
+    """Get the bare command to execute code for a given language (no env -i wrapper).
+
+    Used in agent mode where the executor agent already inherits the correct
+    environment from the container's ENTRYPOINT.
+
+    Returns (command_list, temp_file_path_or_none).
+    """
+    safe_wd = shlex.quote(working_dir)
+
+    if language in ("python", "py"):
+        code_file = Path(working_dir) / "code.py"
+        code_file.write_text(code)
+        return ["python", str(code_file)], code_file
+    elif language in ("javascript", "js"):
+        code_file = Path(working_dir) / "code.js"
+        code_file.write_text(code)
+        return ["node", str(code_file)], code_file
+    elif language in ("typescript", "ts"):
+        code_file = Path(working_dir) / "code.ts"
+        code_file.write_text(code)
+        return ["node", "/opt/scripts/ts-runner.js", str(code_file)], code_file
+    elif language in ("go",):
+        code_file = Path(working_dir) / "main.go"
+        code_file.write_text(code)
+        return ["go", "run", str(code_file)], code_file
+    elif language in ("rust", "rs"):
+        code_file = Path(working_dir) / "main.rs"
+        code_file.write_text(code)
+        return ["sh", "-c", f"cd {safe_wd} && rustc {code_file} -o /tmp/main && /tmp/main"], code_file
+    elif language in ("java",):
+        code_file = Path(working_dir) / "Code.java"
+        code_file.write_text(code)
+        return ["sh", "-c", f"cd {safe_wd} && javac {code_file} && java -cp {working_dir} Code"], code_file
+    elif language in ("c",):
+        code_file = Path(working_dir) / "code.c"
+        code_file.write_text(code)
+        return ["sh", "-c", f"cd {safe_wd} && gcc {code_file} -o /tmp/code && /tmp/code"], code_file
+    elif language in ("cpp",):
+        code_file = Path(working_dir) / "code.cpp"
+        code_file.write_text(code)
+        return ["sh", "-c", f"cd {safe_wd} && g++ {code_file} -o /tmp/code && /tmp/code"], code_file
+    elif language in ("php",):
+        code_file = Path(working_dir) / "code.php"
+        code_file.write_text(code)
+        return ["php", str(code_file)], code_file
+    elif language in ("r",):
+        code_file = Path(working_dir) / "code.r"
+        code_file.write_text(code)
+        return ["Rscript", str(code_file)], code_file
+    elif language in ("fortran", "f90"):
+        code_file = Path(working_dir) / "code.f90"
+        code_file.write_text(code)
+        return ["sh", "-c", f"cd {safe_wd} && gfortran {code_file} -o /tmp/code && /tmp/code"], code_file
+    elif language in ("d", "dlang"):
+        code_file = Path(working_dir) / "code.d"
+        code_file.write_text(code)
+        return ["sh", "-c", f"cd {safe_wd} && ldc2 {code_file} -of=/tmp/code && /tmp/code"], code_file
+    else:
+        return [], None
+
+
+def get_network_isolation_overrides(language: str) -> dict[str, str]:
+    """Get environment variable overrides for network-isolated execution.
+
+    Returns a dict of env vars to override in the executor agent's subprocess.
+    """
+    if not NETWORK_ISOLATED:
+        return {}
+
+    overrides = {}
+    if language in ("go",):
+        overrides["GOPROXY"] = "off"
+        overrides["GOSUMDB"] = "off"
+        print(f"[EXECUTE] Network isolation: overriding GOPROXY=off, GOSUMDB=off", flush=True)
+    return overrides
+
+
+async def execute_via_agent(request: ExecuteRequest) -> ExecuteResponse:
+    """Execute code via the executor agent running in the main container.
+
+    The executor agent is a lightweight HTTP server that runs inside the main
+    container, receiving commands over localhost (shared pod network namespace).
+    No nsenter, capabilities, or privilege escalation needed.
+    """
+    start_time = time.perf_counter()
+
+    try:
+        # Write code to a temp file and get the bare command (no env -i wrapper)
+        cmd, temp_file = get_language_command_bare(
+            LANGUAGE, request.code, request.working_dir
+        )
+        if not cmd:
+            return ExecuteResponse(
+                exit_code=1,
+                stdout="",
+                stderr=f"Unsupported language: {LANGUAGE}",
+                execution_time_ms=0,
+            )
+    except Exception as e:
+        return ExecuteResponse(
+            exit_code=1,
+            stdout="",
+            stderr=f"Failed to prepare execution: {str(e)}\n{traceback.format_exc()}",
+            execution_time_ms=int((time.perf_counter() - start_time) * 1000),
+        )
+
+    # Build env overrides for network isolation
+    env_overrides = get_network_isolation_overrides(LANGUAGE)
+
+    print(f"[EXECUTE] agent mode, cmd={cmd}, timeout={request.timeout}s", flush=True)
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"http://127.0.0.1:{EXECUTOR_AGENT_PORT}/execute",
+                json={
+                    "command": cmd,
+                    "timeout": request.timeout,
+                    "working_dir": request.working_dir,
+                    "env": env_overrides if env_overrides else None,
+                },
+                timeout=request.timeout + 10,  # Extra margin for HTTP overhead
+            )
+
+            if resp.status_code != 200:
+                return ExecuteResponse(
+                    exit_code=1,
+                    stdout="",
+                    stderr=f"Executor agent returned HTTP {resp.status_code}: {resp.text}",
+                    execution_time_ms=int((time.perf_counter() - start_time) * 1000),
+                )
+
+            data = resp.json()
+            return ExecuteResponse(
+                exit_code=data.get("exit_code", 1),
+                stdout=data.get("stdout", ""),
+                stderr=data.get("stderr", ""),
+                execution_time_ms=data.get("execution_time_ms", 0),
+            )
+
+    except httpx.TimeoutException:
+        return ExecuteResponse(
+            exit_code=124,
+            stdout="",
+            stderr=f"Execution timed out after {request.timeout} seconds",
+            execution_time_ms=int((time.perf_counter() - start_time) * 1000),
+        )
+    except httpx.ConnectError:
+        return ExecuteResponse(
+            exit_code=1,
+            stdout="",
+            stderr=f"Cannot connect to executor agent at 127.0.0.1:{EXECUTOR_AGENT_PORT}. "
+                   f"Ensure the main container is running the executor agent.",
+            execution_time_ms=int((time.perf_counter() - start_time) * 1000),
+        )
+    except Exception as e:
+        print(f"[EXECUTE] AGENT EXCEPTION: {type(e).__name__}: {e}", flush=True)
+        return ExecuteResponse(
+            exit_code=1,
+            stdout="",
+            stderr=f"Agent execution error: {str(e)}\n{traceback.format_exc()}",
+            execution_time_ms=int((time.perf_counter() - start_time) * 1000),
+        )
+
+
 async def execute_via_nsenter(request: ExecuteRequest) -> ExecuteResponse:
     """Execute code in the main container using nsenter.
 
@@ -474,8 +655,11 @@ async def execute_via_subprocess_direct(request: ExecuteRequest) -> ExecuteRespo
 
 @app.post("/execute", response_model=ExecuteResponse)
 async def execute_code(request: ExecuteRequest) -> ExecuteResponse:
-    """Execute code and return results via nsenter."""
-    return await execute_via_nsenter(request)
+    """Execute code using the configured execution mode (agent or nsenter)."""
+    if EXECUTION_MODE == "agent":
+        return await execute_via_agent(request)
+    else:
+        return await execute_via_nsenter(request)
 
 
 @app.post("/files")
@@ -586,10 +770,25 @@ async def readiness_check():
     if not os.path.isdir(WORKING_DIR):
         raise HTTPException(status_code=503, detail="Working directory not ready")
 
-    # Check if we can find the main container
-    main_pid = find_main_container_pid()
-    if not main_pid:
-        raise HTTPException(status_code=503, detail="Main container not found")
+    if EXECUTION_MODE == "agent":
+        # In agent mode, check if the executor agent is reachable
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"http://127.0.0.1:{EXECUTOR_AGENT_PORT}/health",
+                    timeout=2,
+                )
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=503, detail="Executor agent not healthy")
+        except httpx.ConnectError:
+            raise HTTPException(status_code=503, detail="Executor agent not reachable")
+        except Exception:
+            raise HTTPException(status_code=503, detail="Executor agent health check failed")
+    else:
+        # In nsenter mode, check if we can find the main container
+        main_pid = find_main_container_pid()
+        if not main_pid:
+            raise HTTPException(status_code=503, detail="Main container not found")
 
     return {"status": "ready"}
 
