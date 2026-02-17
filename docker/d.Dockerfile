@@ -2,7 +2,7 @@
 # D execution environment with Docker Hardened Images.
 # Uses -dev variant because compilers must be available at runtime.
 
-FROM dhi.io/debian-base:trixie-dev
+FROM dhi.io/debian-base:trixie-debian13-dev
 
 ARG BUILD_DATE
 ARG VERSION
