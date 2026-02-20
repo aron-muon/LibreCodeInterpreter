@@ -143,6 +143,29 @@ async def lifespan(app: FastAPI):
             # Build pool configs from settings
             pool_configs = settings.get_pool_configs()
 
+            # Parse image pull secrets (comma-separated string -> list)
+            pull_secrets = None
+            if settings.k8s_image_pull_secrets:
+                pull_secrets = [s.strip() for s in settings.k8s_image_pull_secrets.split(",") if s.strip()]
+
+            # Validate execution mode / sidecar image consistency
+            sidecar_img = settings.k8s_sidecar_image.lower()
+            exec_mode = settings.k8s_execution_mode
+            if exec_mode == "agent" and "nsenter" in sidecar_img:
+                logger.warning(
+                    "Execution mode is 'agent' but sidecar image appears to be nsenter-based. "
+                    "Consider using a sidecar-agent image for agent mode.",
+                    sidecar_image=settings.k8s_sidecar_image,
+                    execution_mode=exec_mode,
+                )
+            elif exec_mode == "nsenter" and "agent" in sidecar_img and "nsenter" not in sidecar_img:
+                logger.warning(
+                    "Execution mode is 'nsenter' but sidecar image appears to be agent-based. "
+                    "Consider using a sidecar-nsenter image for nsenter mode.",
+                    sidecar_image=settings.k8s_sidecar_image,
+                    execution_mode=exec_mode,
+                )
+
             kubernetes_manager = KubernetesManager(
                 namespace=settings.k8s_namespace or None,
                 pool_configs=pool_configs,
@@ -151,8 +174,16 @@ async def lifespan(app: FastAPI):
                 default_memory_limit=settings.k8s_memory_limit,
                 default_cpu_request=settings.k8s_cpu_request,
                 default_memory_request=settings.k8s_memory_request,
+                execution_mode=settings.k8s_execution_mode,
+                executor_port=settings.k8s_executor_port,
                 seccomp_profile_type=settings.k8s_seccomp_profile_type,
                 network_isolated=settings.enable_network_isolation,
+                image_pull_policy=settings.k8s_image_pull_policy,
+                gke_sandbox_enabled=settings.gke_sandbox_enabled,
+                runtime_class_name=settings.gke_sandbox_runtime_class,
+                sandbox_node_selector=settings.kubernetes.sandbox_node_selector,
+                custom_tolerations=settings.kubernetes.custom_tolerations,
+                image_pull_secrets=pull_secrets,
             )
 
             await kubernetes_manager.start()

@@ -106,7 +106,7 @@ class TestPoolStats:
 
         stats = pool.pool_stats
 
-        assert stats == {"initialized": False}
+        assert stats == {"initialized": False, "mode": "standalone"}
 
     def test_pool_stats_initialized(self):
         """Test pool_stats when pool is initialized."""
@@ -114,10 +114,12 @@ class TestPoolStats:
         mock_pool = MagicMock()
         mock_pool.max_connections = 20
         pool._pool = mock_pool
+        pool._initialized = True
 
         stats = pool.pool_stats
 
         assert stats["initialized"] is True
+        assert stats["mode"] == "standalone"
         assert stats["max_connections"] == 20
 
 
