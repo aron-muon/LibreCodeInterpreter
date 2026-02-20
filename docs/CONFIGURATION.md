@@ -135,23 +135,98 @@ Manages API key authentication and security.
 
 ### Redis Configuration
 
-Redis is used for session management and caching.
+Redis is used for session management and caching. Three deployment modes are supported:
+**standalone** (default), **cluster**, and **sentinel** — all with optional TLS/SSL.
 
-| Variable                       | Default     | Description                                        |
-| ------------------------------ | ----------- | -------------------------------------------------- |
-| `REDIS_HOST`                   | `localhost` | Redis server hostname                              |
-| `REDIS_PORT`                   | `6379`      | Redis server port                                  |
-| `REDIS_PASSWORD`               | -           | Redis password (if required)                       |
-| `REDIS_DB`                     | `0`         | Redis database number                              |
-| `REDIS_URL`                    | -           | Complete Redis URL (overrides individual settings) |
-| `REDIS_MAX_CONNECTIONS`        | `20`        | Maximum connections in pool                        |
-| `REDIS_SOCKET_TIMEOUT`         | `5`         | Socket timeout (seconds)                           |
-| `REDIS_SOCKET_CONNECT_TIMEOUT` | `5`         | Connection timeout (seconds)                       |
+#### Connection Settings
+
+| Variable                       | Default       | Description                                              |
+| ------------------------------ | ------------- | -------------------------------------------------------- |
+| `REDIS_MODE`                   | `standalone`  | Deployment mode: `standalone`, `cluster`, or `sentinel`  |
+| `REDIS_HOST`                   | `localhost`   | Redis server hostname                                    |
+| `REDIS_PORT`                   | `6379`        | Redis server port                                        |
+| `REDIS_PASSWORD`               | -             | Redis password (if required)                             |
+| `REDIS_DB`                     | `0`           | Redis database number (standalone/sentinel only)         |
+| `REDIS_URL`                    | -             | Complete Redis URL (overrides individual settings)       |
+| `REDIS_MAX_CONNECTIONS`        | `20`          | Maximum connections in pool                              |
+| `REDIS_SOCKET_TIMEOUT`         | `5`           | Socket timeout (seconds)                                 |
+| `REDIS_SOCKET_CONNECT_TIMEOUT` | `5`           | Connection timeout (seconds)                             |
+| `REDIS_KEY_PREFIX`             | -             | Optional prefix prepended to every Redis key (e.g. `prod:`) |
 
 **Example Redis URL:**
 
 ```
 REDIS_URL=redis://password@localhost:6379/0
+```
+
+#### Redis Cluster Mode
+
+Use `REDIS_MODE=cluster` when running against a Redis Cluster deployment (e.g. GCP Memorystore Cluster, AWS ElastiCache Cluster Mode).
+
+| Variable               | Default | Description                                                                 |
+| ---------------------- | ------- | --------------------------------------------------------------------------- |
+| `REDIS_CLUSTER_NODES`  | -       | Comma-separated `host:port` pairs for cluster startup nodes                 |
+
+> **Note:** `REDIS_DB` is ignored in cluster mode (Redis Cluster only supports database 0).
+
+**Example:**
+
+```bash
+REDIS_MODE=cluster
+REDIS_CLUSTER_NODES=node1:6379,node2:6379,node3:6379
+REDIS_PASSWORD=your-cluster-password
+```
+
+#### Redis Sentinel Mode
+
+Use `REDIS_MODE=sentinel` for high-availability setups with Redis Sentinel.
+
+| Variable                   | Default    | Description                                                  |
+| -------------------------- | ---------- | ------------------------------------------------------------ |
+| `REDIS_SENTINEL_NODES`     | -          | Comma-separated `host:port` pairs for Sentinel instances     |
+| `REDIS_SENTINEL_MASTER`    | `mymaster` | Name of the Sentinel-monitored master                        |
+| `REDIS_SENTINEL_PASSWORD`  | -          | Password for authenticating to Sentinel instances             |
+
+**Example:**
+
+```bash
+REDIS_MODE=sentinel
+REDIS_SENTINEL_NODES=sentinel1:26379,sentinel2:26379,sentinel3:26379
+REDIS_SENTINEL_MASTER=mymaster
+REDIS_PASSWORD=your-redis-password
+REDIS_SENTINEL_PASSWORD=your-sentinel-password
+```
+
+#### Redis TLS/SSL
+
+Enable TLS for encrypted connections. Required by most managed Redis services (GCP Memorystore, AWS ElastiCache, Azure Cache for Redis).
+
+| Variable                 | Default | Description                                                      |
+| ------------------------ | ------- | ---------------------------------------------------------------- |
+| `REDIS_TLS_ENABLED`     | `false` | Enable TLS/SSL for Redis connections                             |
+| `REDIS_TLS_CA_CERT_FILE`| -       | Path to CA certificate for verifying the server                  |
+| `REDIS_TLS_CERT_FILE`   | -       | Path to client TLS certificate (mutual TLS)                     |
+| `REDIS_TLS_KEY_FILE`    | -       | Path to client TLS private key (mutual TLS)                     |
+| `REDIS_TLS_INSECURE`    | `false` | Skip TLS certificate verification (NOT recommended)             |
+
+> When `REDIS_TLS_ENABLED=true` the generated URL uses the `rediss://` scheme automatically.
+
+**Example — GCP Memorystore with TLS:**
+
+```bash
+REDIS_HOST=10.0.0.3
+REDIS_PORT=6378
+REDIS_TLS_ENABLED=true
+REDIS_TLS_CA_CERT_FILE=/etc/ssl/redis/server-ca.pem
+```
+
+**Example — GCP Memorystore Cluster:**
+
+```bash
+REDIS_MODE=cluster
+REDIS_CLUSTER_NODES=10.0.0.3:6379,10.0.0.4:6379,10.0.0.5:6379
+REDIS_TLS_ENABLED=true
+REDIS_TLS_CA_CERT_FILE=/etc/ssl/redis/server-ca.pem
 ```
 
 ### MinIO/S3 Configuration

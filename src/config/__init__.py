@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = Field(default=True, description="Enable per-key rate limiting for Redis-managed keys")
 
     # Redis Configuration
+    redis_mode: Literal["standalone", "cluster", "sentinel"] = Field(
+        default="standalone",
+        description="Redis deployment mode: standalone, cluster, or sentinel",
+    )
     redis_host: str = Field(default="localhost")
     redis_port: int = Field(default=6379, ge=1, le=65535)
     redis_password: str | None = Field(default=None)
@@ -96,6 +100,54 @@ class Settings(BaseSettings):
     redis_max_connections: int = Field(default=20, ge=1)
     redis_socket_timeout: int = Field(default=5, ge=1)
     redis_socket_connect_timeout: int = Field(default=5, ge=1)
+
+    # Redis Cluster
+    redis_cluster_nodes: str | None = Field(
+        default=None,
+        description="Comma-separated host:port pairs for Redis Cluster startup nodes",
+    )
+
+    # Redis Sentinel
+    redis_sentinel_nodes: str | None = Field(
+        default=None,
+        description="Comma-separated host:port pairs for Sentinel instances",
+    )
+    redis_sentinel_master: str = Field(
+        default="mymaster",
+        description="Name of the Sentinel-monitored master",
+    )
+    redis_sentinel_password: str | None = Field(
+        default=None,
+        description="Password for authenticating to Sentinel instances",
+    )
+
+    # Redis Key Prefix
+    redis_key_prefix: str = Field(
+        default="",
+        description="Optional prefix prepended to every Redis key (e.g. 'prod:', 'kubecoderun:')",
+    )
+
+    # Redis TLS/SSL
+    redis_tls_enabled: bool = Field(
+        default=False,
+        description="Enable TLS/SSL for Redis connections",
+    )
+    redis_tls_cert_file: str | None = Field(
+        default=None,
+        description="Path to client TLS certificate (mutual TLS)",
+    )
+    redis_tls_key_file: str | None = Field(
+        default=None,
+        description="Path to client TLS private key (mutual TLS)",
+    )
+    redis_tls_ca_cert_file: str | None = Field(
+        default=None,
+        description="Path to CA certificate for verifying the server",
+    )
+    redis_tls_insecure: bool = Field(
+        default=False,
+        description="Skip TLS certificate verification (NOT recommended for production)",
+    )
 
     # MinIO/S3 Configuration
     minio_endpoint: str = Field(default="localhost:9000")
@@ -502,6 +554,7 @@ class Settings(BaseSettings):
     def redis(self) -> RedisConfig:
         """Access Redis configuration group."""
         return RedisConfig(
+            redis_mode=self.redis_mode,
             redis_host=self.redis_host,
             redis_port=self.redis_port,
             redis_password=self.redis_password,
@@ -510,6 +563,16 @@ class Settings(BaseSettings):
             redis_max_connections=self.redis_max_connections,
             redis_socket_timeout=self.redis_socket_timeout,
             redis_socket_connect_timeout=self.redis_socket_connect_timeout,
+            redis_cluster_nodes=self.redis_cluster_nodes,
+            redis_sentinel_nodes=self.redis_sentinel_nodes,
+            redis_sentinel_master=self.redis_sentinel_master,
+            redis_sentinel_password=self.redis_sentinel_password,
+            redis_key_prefix=self.redis_key_prefix,
+            redis_tls_enabled=self.redis_tls_enabled,
+            redis_tls_cert_file=self.redis_tls_cert_file,
+            redis_tls_key_file=self.redis_tls_key_file,
+            redis_tls_ca_cert_file=self.redis_tls_ca_cert_file,
+            redis_tls_insecure=self.redis_tls_insecure,
         )
 
     @property
@@ -728,11 +791,15 @@ class Settings(BaseSettings):
         return Path(self.ssl_cert_file).exists() and Path(self.ssl_key_file).exists()
 
     def get_redis_url(self) -> str:
-        """Get Redis connection URL."""
+        """Get Redis connection URL.
+
+        Automatically uses ``rediss://`` when TLS is enabled.
+        """
         if self.redis_url:
             return self.redis_url
+        scheme = "rediss" if self.redis_tls_enabled else "redis"
         password_part = f":{self.redis_password}@" if self.redis_password else ""
-        return f"redis://{password_part}{self.redis_host}:{self.redis_port}/{self.redis_db}"
+        return f"{scheme}://{password_part}{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
     def get_valid_api_keys(self) -> list[str]:
         """Get all valid API keys including the primary key."""

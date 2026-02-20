@@ -320,9 +320,34 @@ data:
   WAN_DNS_SERVERS: {{ .Values.network.wan.dnsServers | toJson | quote }}
 
   # Redis Advanced Configuration
+  REDIS_MODE: {{ .Values.redis.mode | quote }}
   REDIS_MAX_CONNECTIONS: {{ .Values.redis.maxConnections | quote }}
   REDIS_SOCKET_TIMEOUT: {{ .Values.redis.socketTimeout | quote }}
   REDIS_SOCKET_CONNECT_TIMEOUT: {{ .Values.redis.socketConnectTimeout | quote }}
+  {{- if .Values.redis.keyPrefix }}
+  REDIS_KEY_PREFIX: {{ .Values.redis.keyPrefix | quote }}
+  {{- end }}
+  {{- if .Values.redis.clusterNodes }}
+  REDIS_CLUSTER_NODES: {{ .Values.redis.clusterNodes | quote }}
+  {{- end }}
+  {{- if .Values.redis.sentinelNodes }}
+  REDIS_SENTINEL_NODES: {{ .Values.redis.sentinelNodes | quote }}
+  {{- end }}
+  REDIS_SENTINEL_MASTER: {{ .Values.redis.sentinelMaster | quote }}
+  {{- if .Values.redis.sentinelPassword }}
+  REDIS_SENTINEL_PASSWORD: {{ .Values.redis.sentinelPassword | quote }}
+  {{- end }}
+  REDIS_TLS_ENABLED: {{ .Values.redis.tls.enabled | quote }}
+  {{- if .Values.redis.tls.caCertFile }}
+  REDIS_TLS_CA_CERT_FILE: {{ .Values.redis.tls.caCertFile | quote }}
+  {{- end }}
+  {{- if .Values.redis.tls.certFile }}
+  REDIS_TLS_CERT_FILE: {{ .Values.redis.tls.certFile | quote }}
+  {{- end }}
+  {{- if .Values.redis.tls.keyFile }}
+  REDIS_TLS_KEY_FILE: {{ .Values.redis.tls.keyFile | quote }}
+  {{- end }}
+  REDIS_TLS_INSECURE: {{ .Values.redis.tls.insecure | quote }}
 
   # MinIO/S3 Configuration
   {{- if not .Values.secretsStore.enabled }}

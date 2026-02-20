@@ -99,6 +99,10 @@ redis:
   # When set, the url/host/port/password/db fields below are ignored
   # Expected secret key: REDIS_URL (full connection string)
   existingSecret: ""
+
+  # Deployment mode: standalone (default), cluster, or sentinel
+  mode: "standalone"
+
   # External Redis URL (required unless existingSecret is set)
   url: "redis://redis:6379/0"
   # Or specify individual fields
@@ -110,6 +114,31 @@ redis:
   maxConnections: 20
   socketTimeout: 5
   socketConnectTimeout: 5
+
+  # Optional key prefix prepended to every Redis key.
+  # Useful when sharing a Redis instance across environments.
+  keyPrefix: ""
+
+  # Redis Cluster mode (mode: cluster)
+  # Comma-separated host:port pairs for cluster startup nodes
+  clusterNodes: ""
+
+  # Redis Sentinel mode (mode: sentinel)
+  # Comma-separated host:port pairs for sentinel instances
+  sentinelNodes: ""
+  sentinelMaster: "mymaster"
+  sentinelPassword: ""
+
+  # TLS/SSL settings (all modes)
+  tls:
+    enabled: false
+    # Path to CA certificate inside the container
+    caCertFile: ""
+    # Client certificate and key for mutual TLS
+    certFile: ""
+    keyFile: ""
+    # Skip server certificate verification (NOT recommended for production)
+    insecure: false
 
 minio:
   # Reference an existing Kubernetes Secret containing S3 credentials
