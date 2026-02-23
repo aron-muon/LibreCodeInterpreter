@@ -14,12 +14,17 @@ GCP Memorystore, AWS ElastiCache, and Azure Cache for Redis.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import redis.asyncio as redis
 import structlog
 from redis.asyncio.cluster import RedisCluster
 from redis.asyncio.sentinel import Sentinel
 
 from ..config import settings
+
+if TYPE_CHECKING:
+    from ..config.redis import RedisConfig
 
 logger = structlog.get_logger(__name__)
 
@@ -76,7 +81,7 @@ class RedisPool:
 
     def _init_standalone(
         self,
-        cfg: RedisConfig,  # noqa: F821
+        cfg: RedisConfig,
         tls_kwargs: dict,
         max_conns: int,
         socket_timeout: float,
@@ -102,7 +107,7 @@ class RedisPool:
 
     def _init_cluster(
         self,
-        cfg: RedisConfig,  # noqa: F821
+        cfg: RedisConfig,
         tls_kwargs: dict,
         max_conns: int,
         socket_timeout: float,
@@ -134,7 +139,7 @@ class RedisPool:
 
     def _init_sentinel(
         self,
-        cfg: RedisConfig,  # noqa: F821
+        cfg: RedisConfig,
         tls_kwargs: dict,
         max_conns: int,
         socket_timeout: float,

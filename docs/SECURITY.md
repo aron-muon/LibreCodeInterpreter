@@ -209,7 +209,7 @@ We use **file capabilities** via `setcap` on the `nsenter` binary in the Docker 
 ```dockerfile
 # In sidecar Dockerfile
 RUN apt-get install -y libcap2-bin
-RUN setcap 'cap_sys_ptrace,cap_sys_admin,cap_sys_chroot+ep' /usr/bin/nsenter
+RUN setcap 'cap_sys_ptrace,cap_sys_admin,cap_sys_chroot+eip' /usr/bin/nsenter
 ```
 
 This grants the nsenter binary the ability to gain these capabilities when executed, even by non-root users.

@@ -25,7 +25,9 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -90,6 +92,16 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	if workingDir == "" {
 		workingDir = "/mnt/data"
 	}
+
+	// Validate that working directory is within the safe /mnt/data directory
+	absDir, err := filepath.Abs(workingDir)
+	if err != nil || !strings.HasPrefix(absDir, "/mnt/data") {
+		writeJSON(w, http.StatusBadRequest, ExecuteResponse{
+			ExitCode: 1, Stderr: fmt.Sprintf("Invalid working directory: must be within /mnt/data, got %q", workingDir),
+		})
+		return
+	}
+	workingDir = absDir
 
 	fmt.Fprintf(os.Stdout, "[executor-agent] cmd=%v timeout=%ds dir=%s\n",
 		req.Command, timeout, workingDir)

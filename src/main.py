@@ -166,6 +166,16 @@ async def lifespan(app: FastAPI):
                     execution_mode=exec_mode,
                 )
 
+            # Validate GKE Sandbox / execution mode compatibility
+            if settings.gke_sandbox_enabled and exec_mode == "nsenter":
+                logger.warning(
+                    "GKE Sandbox (gVisor) is enabled but execution mode is 'nsenter'. "
+                    "nsenter requires SYS_PTRACE/SYS_ADMIN/SYS_CHROOT capabilities which are "
+                    "incompatible with gVisor. Switch to 'agent' execution mode for GKE Sandbox.",
+                    execution_mode=exec_mode,
+                    gke_sandbox_enabled=True,
+                )
+
             kubernetes_manager = KubernetesManager(
                 namespace=settings.k8s_namespace or None,
                 pool_configs=pool_configs,

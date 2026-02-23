@@ -771,3 +771,33 @@ class TestCreatePodManifest:
         # Sidecar should have minimal privileges (agent mode)
         sidecar = next(c for c in pod.spec.containers if c.name == "sidecar")
         assert sidecar.security_context.allow_privilege_escalation is False
+
+    def test_create_pod_manifest_gke_sandbox_warns_on_nsenter_mode(self):
+        """Test that GKE Sandbox with nsenter mode logs a warning."""
+        with patch("src.services.kubernetes.client.logger") as mock_logger:
+            pod = client.create_pod_manifest(
+                name="test-pod",
+                namespace="test-ns",
+                main_image="python:3.12",
+                sidecar_image="sidecar:latest",
+                language="python",
+                labels={"app": "test"},
+                gke_sandbox_enabled=True,
+                execution_mode="nsenter",
+            )
+
+            # Should still create the pod (warning, not error)
+            assert pod.spec.runtime_class_name == "gvisor"
+
+            # nsenter mode features should be present
+            assert pod.spec.share_process_namespace is True
+            assert pod.spec.init_containers is None
+
+            # Sidecar should have elevated privileges (nsenter mode)
+            sidecar = next(c for c in pod.spec.containers if c.name == "sidecar")
+            assert sidecar.security_context.allow_privilege_escalation is True
+
+            # Should have logged a warning about incompatibility
+            mock_logger.warning.assert_called_once()
+            warning_msg = mock_logger.warning.call_args[0][0]
+            assert "gVisor" in warning_msg or "GKE Sandbox" in warning_msg

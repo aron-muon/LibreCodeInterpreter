@@ -75,7 +75,7 @@ RUN apt-get update && \
 # - cap_sys_ptrace: access /proc/<pid>/ns/ of other processes
 # - cap_sys_admin: call setns() to enter namespaces
 # - cap_sys_chroot: required for mount namespace operations
-RUN setcap 'cap_sys_ptrace,cap_sys_admin,cap_sys_chroot+ep' /usr/bin/nsenter
+RUN setcap 'cap_sys_ptrace,cap_sys_admin,cap_sys_chroot+eip' /usr/bin/nsenter
 
 
 ################################

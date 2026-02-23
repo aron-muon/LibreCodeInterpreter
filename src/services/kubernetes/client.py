@@ -243,6 +243,16 @@ def create_pod_manifest(
     """
     use_agent = execution_mode == "agent"
 
+    # Warn if GKE Sandbox is enabled with nsenter mode (incompatible with gVisor)
+    if gke_sandbox_enabled and not use_agent:
+        logger.warning(
+            "GKE Sandbox (gVisor) is enabled but execution mode is 'nsenter'. "
+            "nsenter requires capabilities incompatible with gVisor. "
+            "Consider switching to 'agent' execution mode.",
+            execution_mode=execution_mode,
+            gke_sandbox_enabled=gke_sandbox_enabled,
+        )
+
     # Shared volume for code and data
     shared_volume = client.V1Volume(
         name="shared-data",
