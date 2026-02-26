@@ -72,10 +72,12 @@ class RedisPool:
 
             self._initialized = True
         except Exception as e:
-            logger.error("Failed to initialize Redis pool", error=str(e))
-            # Create a fallback standalone client
-            self._client = redis.from_url("redis://localhost:6379/0", decode_responses=True)
-            self._initialized = True
+            logger.error(
+                "Failed to initialize Redis pool",
+                error=str(e),
+                mode=self._mode,
+            )
+            raise
 
     # -- Mode-specific initialisers -------------------------------------------
 

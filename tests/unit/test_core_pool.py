@@ -51,20 +51,24 @@ class TestRedisPoolInitialize:
         assert pool._initialized is True
         assert pool._client is not None
 
-    def test_initialize_fallback_on_error(self):
-        """Test _initialize creates fallback client on error."""
+    def test_initialize_raises_on_error(self):
+        """Test _initialize propagates errors instead of silently falling back."""
         pool = RedisPool()
 
         with patch("src.core.pool.settings") as mock_settings:
-            mock_settings.get_redis_url.side_effect = Exception("Connection failed")
+            mock_settings.redis.mode = "standalone"
+            mock_settings.redis.get_url.side_effect = Exception("Connection failed")
+            mock_settings.redis.get_tls_kwargs.return_value = {}
+            mock_settings.redis.key_prefix = ""
+            mock_settings.redis.max_connections = 20
+            mock_settings.redis.socket_timeout = 5
+            mock_settings.redis.socket_connect_timeout = 5
 
-            with patch("src.core.pool.redis.from_url") as mock_from_url:
-                mock_from_url.return_value = MagicMock()
-
+            with pytest.raises(Exception, match="Connection failed"):
                 pool._initialize()
 
-        assert pool._initialized is True
-        assert pool._client is not None
+        assert pool._initialized is False
+        assert pool._client is None
 
 
 class TestGetClient:
