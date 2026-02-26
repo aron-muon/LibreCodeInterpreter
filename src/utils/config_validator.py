@@ -96,12 +96,23 @@ class ConfigValidator:
     def _validate_redis_connection(self):
         """Validate Redis connection."""
         try:
-            # Use Redis URL from settings
+            # Build TLS kwargs so the CA cert (and other TLS params) are
+            # honoured during the connectivity test.  Without this the
+            # sync client falls back to the system CA bundle which will
+            # reject self-signed certificates used by managed services
+            # such as GCP Memorystore.
+            redis_cfg = settings.redis
+            tls_kwargs = redis_cfg.get_tls_kwargs()
+            # The ``ssl`` flag is already implied by the ``rediss://`` URL
+            # scheme; remove it to avoid a duplicate/conflicting kwarg.
+            tls_kwargs.pop("ssl", None)
+
             client = redis.from_url(
                 settings.get_redis_url(),
                 socket_timeout=settings.redis_socket_timeout,
                 socket_connect_timeout=settings.redis_socket_connect_timeout,
                 max_connections=settings.redis_max_connections,
+                **tls_kwargs,
             )
 
             # Test connection

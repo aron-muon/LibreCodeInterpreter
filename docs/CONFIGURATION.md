@@ -201,13 +201,14 @@ REDIS_SENTINEL_PASSWORD=your-sentinel-password
 
 Enable TLS for encrypted connections. Required by most managed Redis services (GCP Memorystore, AWS ElastiCache, Azure Cache for Redis).
 
-| Variable                 | Default | Description                                                      |
-| ------------------------ | ------- | ---------------------------------------------------------------- |
-| `REDIS_TLS_ENABLED`     | `false` | Enable TLS/SSL for Redis connections                             |
-| `REDIS_TLS_CA_CERT_FILE`| -       | Path to CA certificate for verifying the server                  |
-| `REDIS_TLS_CERT_FILE`   | -       | Path to client TLS certificate (mutual TLS)                     |
-| `REDIS_TLS_KEY_FILE`    | -       | Path to client TLS private key (mutual TLS)                     |
-| `REDIS_TLS_INSECURE`    | `false` | Skip TLS certificate verification (NOT recommended)             |
+| Variable                       | Default | Description                                                      |
+| ------------------------------ | ------- | ---------------------------------------------------------------- |
+| `REDIS_TLS_ENABLED`            | `false` | Enable TLS/SSL for Redis connections                             |
+| `REDIS_TLS_CA_CERT_FILE`       | -       | Path to CA certificate for verifying the server                  |
+| `REDIS_TLS_CERT_FILE`          | -       | Path to client TLS certificate (mutual TLS)                     |
+| `REDIS_TLS_KEY_FILE`           | -       | Path to client TLS private key (mutual TLS)                     |
+| `REDIS_TLS_INSECURE`           | `false` | Skip TLS certificate verification (NOT recommended)             |
+| `REDIS_TLS_CHECK_HOSTNAME`     | `false` | Verify server hostname against certificate CN/SAN                |
 
 > When `REDIS_TLS_ENABLED=true` the generated URL uses the `rediss://` scheme automatically.
 

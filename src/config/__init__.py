@@ -148,6 +148,10 @@ class Settings(BaseSettings):
         default=False,
         description="Skip TLS certificate verification (NOT recommended for production)",
     )
+    redis_tls_check_hostname: bool = Field(
+        default=False,
+        description="Enable TLS hostname verification (off by default for managed Redis / cluster)",
+    )
 
     # MinIO/S3 Configuration
     minio_endpoint: str = Field(default="localhost:9000")
@@ -519,6 +523,17 @@ class Settings(BaseSettings):
         """Parse comma-separated API keys into a list."""
         return [key.strip() for key in v.split(",") if key.strip()] if v else None
 
+    @field_validator("redis_host", mode="before")
+    @classmethod
+    def sanitize_redis_host(cls, v):
+        """Strip accidental URL scheme from Redis host."""
+        if isinstance(v, str):
+            for scheme in ("rediss://", "redis://"):
+                if v.lower().startswith(scheme):
+                    v = v[len(scheme):].rstrip("/")
+                    break
+        return v
+
     @field_validator("minio_endpoint")
     @classmethod
     def validate_minio_endpoint(cls, v):
@@ -573,6 +588,7 @@ class Settings(BaseSettings):
             redis_tls_key_file=self.redis_tls_key_file,
             redis_tls_ca_cert_file=self.redis_tls_ca_cert_file,
             redis_tls_insecure=self.redis_tls_insecure,
+            redis_tls_check_hostname=self.redis_tls_check_hostname,
         )
 
     @property

@@ -348,6 +348,7 @@ data:
   REDIS_TLS_KEY_FILE: {{ .Values.redis.tls.keyFile | quote }}
   {{- end }}
   REDIS_TLS_INSECURE: {{ .Values.redis.tls.insecure | quote }}
+  REDIS_TLS_CHECK_HOSTNAME: {{ .Values.redis.tls.checkHostname | quote }}
 
   # MinIO/S3 Configuration
   {{- if not .Values.secretsStore.enabled }}

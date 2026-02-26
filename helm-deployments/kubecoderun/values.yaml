@@ -139,6 +139,10 @@ redis:
     keyFile: ""
     # Skip server certificate verification (NOT recommended for production)
     insecure: false
+    # Verify server hostname against certificate CN/SAN.
+    # Off by default because managed Redis services and cluster mode
+    # expose node IPs that typically don't match certificate names.
+    checkHostname: false
 
 minio:
   # Reference an existing Kubernetes Secret containing S3 credentials

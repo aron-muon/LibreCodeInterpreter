@@ -11,7 +11,7 @@ services such as GCP Memorystore, AWS ElastiCache, and Azure Cache for Redis.
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -112,6 +112,37 @@ class RedisConfig(BaseSettings):
         alias="redis_tls_insecure",
         description="Skip TLS certificate verification (NOT recommended for production).",
     )
+    tls_check_hostname: bool = Field(
+        default=False,
+        alias="redis_tls_check_hostname",
+        description=(
+            "Enable TLS hostname verification. Disabled by default because "
+            "managed Redis services (GCP Memorystore, AWS ElastiCache) and "
+            "Redis Cluster mode expose node IPs that typically do not match "
+            "the certificate CN/SAN entries. The certificate chain is still "
+            "verified against the CA when tls_insecure is False."
+        ),
+    )
+
+    # -- Validators ------------------------------------------------------------
+
+    @field_validator("host", mode="before")
+    @classmethod
+    def _sanitize_host(cls, v: str) -> str:
+        """Strip an accidental URL scheme from the host value.
+
+        Users sometimes set ``REDIS_HOST=rediss://hostname`` instead of just
+        ``REDIS_HOST=hostname``.  This validator normalises the value so that
+        downstream code always receives a plain hostname or IP.
+        """
+        if isinstance(v, str):
+            for scheme in ("rediss://", "redis://"):
+                if v.lower().startswith(scheme):
+                    v = v[len(scheme):]
+                    # Drop any trailing slash left over
+                    v = v.rstrip("/")
+                    break
+        return v
 
     # -- Helpers ---------------------------------------------------------------
 
@@ -147,7 +178,12 @@ class RedisConfig(BaseSettings):
             kwargs["ssl_check_hostname"] = False
         else:
             kwargs["ssl_cert_reqs"] = ssl.CERT_REQUIRED
-            kwargs["ssl_check_hostname"] = True
+            # Hostname checking is off by default because managed Redis
+            # services (GCP Memorystore, AWS ElastiCache) and Redis
+            # Cluster node discovery return IPs that do not match the
+            # certificate CN/SAN.  The certificate chain is still fully
+            # validated against the CA.
+            kwargs["ssl_check_hostname"] = self.tls_check_hostname
 
         if self.tls_ca_cert_file:
             kwargs["ssl_ca_certs"] = self.tls_ca_cert_file
